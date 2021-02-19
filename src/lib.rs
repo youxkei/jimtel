@@ -2,18 +2,18 @@ use lv2::prelude::*;
 
 #[derive(PortCollection)]
 struct Ports {
-    input1: InputPort<Audio>,
-    input2: InputPort<Audio>,
-    output1: OutputPort<Audio>,
-    output2: OutputPort<Audio>,
+    input_left: InputPort<Audio>,
+    input_right: InputPort<Audio>,
+    output_left: OutputPort<Audio>,
+    output_right: OutputPort<Audio>,
 
     gain: InputPort<Control>,
 }
 
 #[uri("https://github.com/youxkei/jimtel")]
-struct Amp;
+struct Jimtel;
 
-impl Plugin for Amp {
+impl Plugin for Jimtel {
     type Ports = Ports;
 
     type InitFeatures = ();
@@ -30,10 +30,12 @@ impl Plugin for Amp {
             0.0
         };
 
-        for (in_frame, out_frame) in Iterator::zip(ports.input1.iter(), ports.output1.iter_mut()) {
+        for (in_frame, out_frame) in
+            Iterator::zip(ports.input_left.iter(), ports.output_left.iter_mut())
+        {
             *out_frame = in_frame * coef;
         }
     }
 }
 
-lv2_descriptors!(Amp);
+lv2_descriptors!(Jimtel);
