@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 lv2 = "0.6.0"
+itertools = "0.10.0"
