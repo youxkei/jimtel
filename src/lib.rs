@@ -19,6 +19,7 @@ struct Jimtel {
     sample_rate: f64,
     current_peak: f32,
     current_coefficienet: f32,
+    samples_under_threshold: i32,
 }
 
 impl Plugin for Jimtel {
@@ -32,6 +33,7 @@ impl Plugin for Jimtel {
             sample_rate: plugin_info.sample_rate(),
             current_peak: 0.0,
             current_coefficienet: 0.0,
+            samples_under_threshold: 0,
         })
     }
 
@@ -40,9 +42,10 @@ impl Plugin for Jimtel {
         let output_gain_db = *ports.output_gain;
         let limit_dbfs = *ports.limit;
         let threshold_dbfs = *ports.threshold;
-        let duration_sec = *ports.duration;
+        let duration_ms = *ports.duration as f64;
 
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
+        let threshold = 10.0_f32.powf(threshold_dbfs * 0.05);
 
         self.current_peak = self.current_peak.max(limit);
         self.current_coefficienet = limit / self.current_peak;
@@ -54,6 +57,17 @@ impl Plugin for Jimtel {
             ports.output_right.iter_mut(),
         ) {
             let sample_abs = in_left.abs().max(in_right.abs());
+
+            if sample_abs < threshold {
+                self.samples_under_threshold += 1;
+
+                if self.samples_under_threshold > (self.sample_rate * duration_ms / 1000.0) as i32 {
+                    self.current_peak = limit;
+                    self.current_coefficienet = 1.0;
+                }
+            } else {
+                self.samples_under_threshold = 0;
+            }
 
             if sample_abs > self.current_peak {
                 self.current_peak = sample_abs;
