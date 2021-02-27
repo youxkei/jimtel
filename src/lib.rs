@@ -44,6 +44,9 @@ impl Plugin for Jimtel {
         let threshold_dbfs = *ports.threshold;
         let duration_ms = *ports.duration as f64;
 
+        let input_gain = 10.0_f32.powf(input_gain_db * 0.05);
+        let output_gain = 10.0_f32.powf(output_gain_db * 0.05);
+        let total_gain = input_gain * output_gain;
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
         let threshold = 10.0_f32.powf(threshold_dbfs * 0.05);
 
@@ -56,7 +59,7 @@ impl Plugin for Jimtel {
             ports.output_left.iter_mut(),
             ports.output_right.iter_mut(),
         ) {
-            let sample_abs = in_left.abs().max(in_right.abs());
+            let sample_abs = in_left.abs().max(in_right.abs()) * input_gain;
 
             if sample_abs < threshold {
                 self.samples_under_threshold += 1;
@@ -74,8 +77,10 @@ impl Plugin for Jimtel {
                 self.current_coefficienet = limit / self.current_peak;
             }
 
-            *out_left = in_left * self.current_coefficienet;
-            *out_right = in_right * self.current_coefficienet;
+            let coefficient = total_gain * self.current_coefficienet;
+
+            *out_left = in_left * coefficient;
+            *out_right = in_right * coefficient;
         }
     }
 }
