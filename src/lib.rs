@@ -40,7 +40,7 @@ impl Plugin for Jimtel {
             current_coefficienet: 0.0,
             samples_num_under_threshold: 0,
 
-            loudness: loudness::Loudness::new(sample_rate as f32, 0.01),
+            loudness: loudness::Loudness::new(sample_rate as f32, 0.4),
         })
     }
 
@@ -56,6 +56,7 @@ impl Plugin for Jimtel {
         let total_gain = input_gain * output_gain;
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
         let threshold = 10.0_f32.powf(threshold_dbfs * 0.05);
+        let duration = (self.sample_rate * duration_ms / 1000.0) as u64;
 
         self.current_peak = self.current_peak.max(limit);
         self.current_coefficienet = limit / self.current_peak;
@@ -71,9 +72,7 @@ impl Plugin for Jimtel {
             if sample_abs < threshold {
                 self.samples_num_under_threshold += 1;
             } else {
-                if self.samples_num_under_threshold
-                    > (self.sample_rate * duration_ms / 1000.0) as u64
-                {
+                if self.samples_num_under_threshold > duration {
                     self.current_peak = limit;
                     self.current_coefficienet = 1.0;
 
