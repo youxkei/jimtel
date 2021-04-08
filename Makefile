@@ -1,4 +1,6 @@
-target/release/libjimtel.so: src/lib.rs
+SOURCES := $(shell find src -name "*.rs")
+
+target/release/libjimtel.so: ${SOURCES}
 	cargo build --release
 
 .PHONY: install

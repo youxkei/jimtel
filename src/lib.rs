@@ -1,5 +1,7 @@
 use lv2::prelude::*;
 
+mod loudness;
+
 #[derive(PortCollection)]
 struct Ports {
     input_left: InputPort<Audio>,
@@ -19,7 +21,8 @@ struct Jimtel {
     sample_rate: f64,
     current_peak: f32,
     current_coefficienet: f32,
-    samples_under_threshold: i32,
+    samples_num_under_threshold: u64,
+    loudness: loudness::Loudness,
 }
 
 impl Plugin for Jimtel {
@@ -29,11 +32,15 @@ impl Plugin for Jimtel {
     type AudioFeatures = ();
 
     fn new(plugin_info: &PluginInfo, _features: &mut ()) -> Option<Self> {
+        let sample_rate = plugin_info.sample_rate();
+
         Some(Self {
             sample_rate: plugin_info.sample_rate(),
             current_peak: 0.0,
             current_coefficienet: 0.0,
-            samples_under_threshold: 0,
+            samples_num_under_threshold: 0,
+
+            loudness: loudness::Loudness::new(sample_rate as f32, 0.01),
         })
     }
 
@@ -62,18 +69,31 @@ impl Plugin for Jimtel {
             let sample_abs = in_left.abs().max(in_right.abs()) * input_gain;
 
             if sample_abs < threshold {
-                self.samples_under_threshold += 1;
-
-                if self.samples_under_threshold > (self.sample_rate * duration_ms / 1000.0) as i32 {
+                self.samples_num_under_threshold += 1;
+            } else {
+                if self.samples_num_under_threshold
+                    > (self.sample_rate * duration_ms / 1000.0) as u64
+                {
                     self.current_peak = limit;
                     self.current_coefficienet = 1.0;
+
+                    self.loudness.reset()
                 }
-            } else {
-                self.samples_under_threshold = 0;
+
+                self.samples_num_under_threshold = 0;
             }
 
-            if sample_abs > self.current_peak {
-                self.current_peak = sample_abs;
+            let loudness = match self
+                .loudness
+                .add_samples(*in_left * input_gain, *in_right * input_gain)
+            {
+                Some(loudness) => loudness,
+
+                None => sample_abs,
+            };
+
+            if loudness > self.current_peak {
+                self.current_peak = loudness;
                 self.current_coefficienet = limit / self.current_peak;
             }
 
