@@ -69,8 +69,8 @@
     ] , [
             a lv2:InputPort , lv2:ControlPort ;
             lv2:index 8 ;
-            lv2:symbol "duration" ;
-            lv2:name "Duration" ;
+            lv2:symbol "threshold_sustain" ;
+            lv2:name "ThresholdSustain" ;
             lv2:default 1000.0 ;
             lv2:minimum 1.0 ;
             lv2:maximum 60000.0 ;

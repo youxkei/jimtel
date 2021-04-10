@@ -13,12 +13,12 @@ struct Ports {
     output_gain: InputPort<Control>,
     limit: InputPort<Control>,
     threshold: InputPort<Control>,
-    duration: InputPort<Control>,
+    threshold_sustain: InputPort<Control>,
 }
 
 #[uri("https://github.com/youxkei/jimtel")]
 struct Jimtel {
-    sample_rate: f64,
+    sample_rate_hz: f64,
     current_peak: f32,
     current_coefficienet: f32,
     samples_num_under_threshold: u64,
@@ -32,15 +32,15 @@ impl Plugin for Jimtel {
     type AudioFeatures = ();
 
     fn new(plugin_info: &PluginInfo, _features: &mut ()) -> Option<Self> {
-        let sample_rate = plugin_info.sample_rate();
+        let sample_rate_hz = plugin_info.sample_rate();
 
         Some(Self {
-            sample_rate: plugin_info.sample_rate(),
+            sample_rate_hz: plugin_info.sample_rate(),
             current_peak: 0.0,
             current_coefficienet: 0.0,
             samples_num_under_threshold: 0,
 
-            loudness: loudness::Loudness::new(sample_rate as f32, 0.4),
+            loudness: loudness::Loudness::new(sample_rate_hz as f32, 0.4),
         })
     }
 
@@ -49,14 +49,15 @@ impl Plugin for Jimtel {
         let output_gain_db = *ports.output_gain;
         let limit_dbfs = *ports.limit;
         let threshold_dbfs = *ports.threshold;
-        let duration_ms = *ports.duration as f64;
+        let threshold_sustain_ms = *ports.threshold_sustain as f64;
 
         let input_gain = 10.0_f32.powf(input_gain_db * 0.05);
         let output_gain = 10.0_f32.powf(output_gain_db * 0.05);
         let total_gain = input_gain * output_gain;
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
         let threshold = 10.0_f32.powf(threshold_dbfs * 0.05);
-        let duration = (self.sample_rate * duration_ms / 1000.0) as u64;
+        let threshold_sustain_samples_num =
+            (self.sample_rate_hz * threshold_sustain_ms / 1000.0) as u64;
 
         self.current_peak = self.current_peak.max(limit);
         self.current_coefficienet = limit / self.current_peak;
@@ -72,7 +73,7 @@ impl Plugin for Jimtel {
             if sample_abs < threshold {
                 self.samples_num_under_threshold += 1;
             } else {
-                if self.samples_num_under_threshold > duration {
+                if self.samples_num_under_threshold > threshold_sustain_samples_num {
                     self.current_peak = limit;
                     self.current_coefficienet = 1.0;
 
@@ -86,7 +87,7 @@ impl Plugin for Jimtel {
                 .loudness
                 .add_samples(*in_left * input_gain, *in_right * input_gain)
             {
-                Some(loudness) => loudness,
+                Some(_loudness) => sample_abs,
 
                 None => sample_abs,
             };
