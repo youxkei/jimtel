@@ -36,7 +36,7 @@ impl Loudness {
         let left_sample = left_sample * left_sample;
         let right_sample = right_sample * right_sample;
 
-        self.samples.push((left_sample, right_sample));
+        self.samples[self.samples_num] = (left_sample, right_sample);
         self.samples_num += 1;
 
         if self.samples_num >= self.samples_num_per_window {
