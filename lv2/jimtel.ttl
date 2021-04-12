@@ -60,6 +60,15 @@
     ] , [
             a lv2:InputPort , lv2:ControlPort;
             lv2:index 7;
+            lv2:symbol "release";
+            lv2:name "Release";
+            lv2:default 1.0;
+            lv2:minimum 0.01;
+            lv2:maximum 2.0;
+            units:unit units:ms;
+    ] , [
+            a lv2:InputPort , lv2:ControlPort;
+            lv2:index 8;
             lv2:symbol "infinite_sustain";
             lv2:name "InfiniteSustain";
             lv2:default 0.0;
