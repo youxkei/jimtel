@@ -40,7 +40,7 @@ impl Plugin for Jimtel {
             current_coefficienet: 0.0,
             samples_num_under_threshold: 0,
 
-            loudness: loudness::Loudness::new(sample_rate_hz as f32, 0.4),
+            loudness: loudness::Loudness::new(sample_rate_hz as f32, 0.4, 0.01),
         })
     }
 

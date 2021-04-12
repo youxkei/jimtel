@@ -2,73 +2,115 @@ use std::f32;
 
 pub struct Loudness {
     samples_num_per_window: usize,
-    left_first_filter: Filter,
-    right_first_filter: Filter,
-    left_second_filter: Filter,
-    right_second_filter: Filter,
+    interval_samples_num: usize,
+    left_prefilter: Prefilter,
+    right_prefilter: Prefilter,
 
-    sum: f32,
-    residue: f32,
+    samples: Vec<(f32, f32)>,
+    current_sample: usize,
     samples_num: usize,
     current_loudness: Option<f32>,
 }
 
 impl Loudness {
-    pub fn new(sample_rate_hz: f32, window_sec: f32) -> Loudness {
+    pub fn new(sample_rate_hz: f32, window_sec: f32, interval_sec: f32) -> Loudness {
         let samples_num_per_window = (sample_rate_hz * window_sec) as usize;
 
         Loudness {
             samples_num_per_window: samples_num_per_window,
-            left_first_filter: Filter::high_shelf(sample_rate_hz),
-            right_first_filter: Filter::high_shelf(sample_rate_hz),
-            left_second_filter: Filter::high_pass(sample_rate_hz),
-            right_second_filter: Filter::high_pass(sample_rate_hz),
+            interval_samples_num: (sample_rate_hz * interval_sec) as usize,
+            left_prefilter: Prefilter::new(sample_rate_hz),
+            right_prefilter: Prefilter::new(sample_rate_hz),
 
-            sum: 0.0,
-            residue: 0.0,
+            samples: vec![(0.0, 0.0); samples_num_per_window],
             samples_num: 0,
+            current_sample: 0,
             current_loudness: None,
         }
     }
 
     pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> Option<f32> {
-        let left_sample = self
-            .left_second_filter
-            .apply(self.left_first_filter.apply(left_sample));
-        let right_sample = self
-            .right_second_filter
-            .apply(self.right_first_filter.apply(right_sample));
+        let left_sample = self.left_prefilter.apply(left_sample);
+        let right_sample = self.right_prefilter.apply(right_sample);
 
         let left_sample = left_sample * left_sample;
         let right_sample = right_sample * right_sample;
 
-        let sum = self.sum + (self.residue + left_sample);
-        self.residue = (self.residue + left_sample) - (sum - self.sum);
-        self.sum = sum;
-
-        let sum = self.sum + (self.residue + right_sample);
-        self.residue = (self.residue + right_sample) - (sum - self.sum);
-        self.sum = sum;
-
+        self.samples.push((left_sample, right_sample));
         self.samples_num += 1;
 
         if self.samples_num >= self.samples_num_per_window {
-            self.current_loudness =
-                Some(0.9235 * (self.sum / self.samples_num_per_window as f32).sqrt());
-
-            self.samples_num = 0;
-            self.sum = 0.0;
-            self.residue = 0.0;
+            self.samples_num = 0
         }
+
+        let calculate_loudness = match self.current_loudness {
+            Some(_) => self.samples_num >= self.interval_samples_num,
+            None => self.samples_num >= self.samples_num_per_window,
+        };
+
+        if !calculate_loudness {
+            return self.current_loudness;
+        }
+
+        let mut index = self.samples_num;
+        let mut count = 0;
+        let mut sum = 0.0;
+        let mut residue = 0.0;
+
+        loop {
+            let (left_sample, right_sample) = self.samples[index];
+
+            {
+                let tmp = sum + (residue + left_sample);
+                residue = (residue + left_sample) - (tmp - sum);
+                sum = tmp
+            }
+
+            {
+                let tmp = sum + (residue + right_sample);
+                residue = (residue + right_sample) - (tmp - sum);
+                sum = tmp
+            }
+
+            index += 1;
+            count += 1;
+
+            if index >= self.samples_num_per_window {
+                index = 0
+            }
+
+            if count >= self.samples_num_per_window {
+                break;
+            }
+        }
+
+        self.current_loudness = Some(0.9235 * (sum / self.samples_num_per_window as f32).sqrt());
 
         self.current_loudness
     }
 
     pub fn reset(&mut self) {
-        self.sum = 0.0;
-        self.residue = 0.0;
         self.samples_num = 0;
         self.current_loudness = None;
+    }
+}
+
+struct Prefilter {
+    first: Filter,
+    second: Filter,
+}
+
+impl Prefilter {
+    fn new(sample_rate_hz: f32) -> Prefilter {
+        Prefilter {
+            first: Filter::high_shelf(sample_rate_hz),
+            second: Filter::high_pass(sample_rate_hz),
+        }
+    }
+
+    #[inline(always)]
+    fn apply(&mut self, sample: f32) -> f32 {
+        self.second.apply(self.first.apply(sample))
     }
 }
 
