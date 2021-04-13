@@ -1,15 +1,23 @@
 use std::f32;
 
+enum State {
+    BufferFilling,
+    BufferFilled,
+}
+
 pub struct Loudness {
     samples_num_per_window: usize,
     interval_samples_num: usize,
+
     left_prefilter: Prefilter,
     right_prefilter: Prefilter,
 
-    samples: Vec<f32>,
+    sample_buffer: Vec<f32>,
     current_sample: usize,
     count: usize,
     current_loudness: Option<f32>,
+
+    state: State,
 }
 
 impl Loudness {
@@ -19,13 +27,16 @@ impl Loudness {
         Loudness {
             samples_num_per_window: samples_num_per_window,
             interval_samples_num: (sample_rate_hz * interval_sec) as usize,
+
             left_prefilter: Prefilter::new(sample_rate_hz),
             right_prefilter: Prefilter::new(sample_rate_hz),
 
-            samples: vec![0.0; samples_num_per_window],
+            sample_buffer: vec![0.0; samples_num_per_window],
             current_sample: 0,
             count: 0,
             current_loudness: None,
+
+            state: State::BufferFilling,
         }
     }
 
@@ -36,9 +47,9 @@ impl Loudness {
         let left_sample = left_sample * left_sample;
         let right_sample = right_sample * right_sample;
 
-        let sample = (left_sample + right_sample) / 2.0;
+        let sample = left_sample + right_sample;
 
-        self.samples[self.current_sample] = sample;
+        self.sample_buffer[self.current_sample] = sample;
         self.current_sample += 1;
         self.count += 1;
 
@@ -46,9 +57,18 @@ impl Loudness {
             self.current_sample = 0
         }
 
-        let calculate_loudness = match self.current_loudness {
-            Some(_) => self.count >= self.interval_samples_num,
-            None => self.count >= self.samples_num_per_window,
+        let calculate_loudness = match self.state {
+            State::BufferFilling => {
+                let calculate_loudness = self.count >= self.samples_num_per_window;
+
+                if calculate_loudness {
+                    self.state = State::BufferFilled;
+                }
+
+                calculate_loudness
+            }
+
+            State::BufferFilled => self.count >= self.interval_samples_num,
         };
 
         if !calculate_loudness {
@@ -58,11 +78,12 @@ impl Loudness {
         self.count = 0;
 
         let mut index = self.current_sample;
+
         let mut sum = 0.0;
         let mut residue = 0.0;
 
         for _ in 0..self.samples_num_per_window {
-            let sample = self.samples[index];
+            let sample = self.sample_buffer[index];
 
             let tmp = sum + (residue + sample);
             residue = (residue + sample) - (tmp - sum);
@@ -86,6 +107,7 @@ impl Loudness {
         self.current_sample = 0;
         self.count = 0;
         self.current_loudness = None;
+        self.state = State::BufferFilling;
     }
 }
 
