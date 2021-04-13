@@ -6,9 +6,9 @@ pub struct Loudness {
     left_prefilter: Prefilter,
     right_prefilter: Prefilter,
 
-    samples: Vec<(f32, f32)>,
+    samples: Vec<f32>,
     current_sample: usize,
-    samples_num: usize,
+    count: usize,
     current_loudness: Option<f32>,
 }
 
@@ -22,75 +22,69 @@ impl Loudness {
             left_prefilter: Prefilter::new(sample_rate_hz),
             right_prefilter: Prefilter::new(sample_rate_hz),
 
-            samples: vec![(0.0, 0.0); samples_num_per_window],
-            samples_num: 0,
+            samples: vec![0.0; samples_num_per_window],
             current_sample: 0,
+            count: 0,
             current_loudness: None,
         }
     }
 
-    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> Option<f32> {
+    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) {
         let left_sample = self.left_prefilter.apply(left_sample);
         let right_sample = self.right_prefilter.apply(right_sample);
 
         let left_sample = left_sample * left_sample;
         let right_sample = right_sample * right_sample;
 
-        self.samples[self.samples_num] = (left_sample, right_sample);
-        self.samples_num += 1;
+        let sample = (left_sample + right_sample) / 2.0;
 
-        if self.samples_num >= self.samples_num_per_window {
-            self.samples_num = 0
+        self.samples[self.current_sample] = sample;
+        self.current_sample += 1;
+        self.count += 1;
+
+        if self.current_sample >= self.samples_num_per_window {
+            self.current_sample = 0
         }
 
         let calculate_loudness = match self.current_loudness {
-            Some(_) => self.samples_num >= self.interval_samples_num,
-            None => self.samples_num >= self.samples_num_per_window,
+            Some(_) => self.count >= self.interval_samples_num,
+            None => self.count >= self.samples_num_per_window,
         };
 
         if !calculate_loudness {
-            return self.current_loudness;
+            return;
         }
 
-        let mut index = self.samples_num;
-        let mut count = 0;
+        self.count = 0;
+
+        let mut index = self.current_sample;
         let mut sum = 0.0;
         let mut residue = 0.0;
 
-        loop {
-            let (left_sample, right_sample) = self.samples[index];
+        for _ in 0..self.samples_num_per_window {
+            let sample = self.samples[index];
 
-            {
-                let tmp = sum + (residue + left_sample);
-                residue = (residue + left_sample) - (tmp - sum);
-                sum = tmp
-            }
-
-            {
-                let tmp = sum + (residue + right_sample);
-                residue = (residue + right_sample) - (tmp - sum);
-                sum = tmp
-            }
+            let tmp = sum + (residue + sample);
+            residue = (residue + sample) - (tmp - sum);
+            sum = tmp;
 
             index += 1;
-            count += 1;
 
             if index >= self.samples_num_per_window {
                 index = 0
             }
-
-            if count >= self.samples_num_per_window {
-                break;
-            }
         }
 
         self.current_loudness = Some(0.9235 * (sum / self.samples_num_per_window as f32).sqrt());
+    }
 
+    pub fn loudness(&self) -> Option<f32> {
         self.current_loudness
     }
 
     pub fn reset(&mut self) {
-        self.samples_num = 0;
+        self.current_sample = 0;
+        self.count = 0;
         self.current_loudness = None;
     }
 }

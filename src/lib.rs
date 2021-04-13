@@ -41,7 +41,7 @@ impl Plugin for Jimtel {
             current_coefficienet: 0.0,
             infinite_sustain: false,
 
-            loudness: loudness::Loudness::new(sample_rate_hz as f32, 0.4, 0.01),
+            loudness: loudness::Loudness::new(sample_rate_hz as f32, 0.4, 0.001),
         })
     }
 
@@ -55,8 +55,8 @@ impl Plugin for Jimtel {
         let output_gain = 10.0_f32.powf(output_gain_db * 0.05);
         let total_gain = input_gain * output_gain;
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
+        let release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
         let infinite_sustain = *ports.infinite_sustain > 0.0;
-        let release_speed = (1.0 - limit) / (self.sample_rate_hz * release_ms / 1000.0) / 10.0;
 
         self.current_peak = self.current_peak.max(limit);
         self.current_coefficienet = limit / self.current_peak;
@@ -76,23 +76,34 @@ impl Plugin for Jimtel {
 
             self.infinite_sustain = infinite_sustain;
 
-            let loudness = match self
-                .loudness
-                .add_samples(*in_left * input_gain, *in_right * input_gain)
-            {
+            let sample_abs = (in_left.abs() + in_right.abs()) / 2.0 * input_gain;
+
+            if sample_abs >= limit {
+                self.loudness
+                    .add_samples(*in_left * input_gain, *in_right * input_gain)
+            } else {
+                self.loudness.reset()
+            }
+
+            let loudness = match self.loudness.loudness() {
                 Some(loudness) => loudness,
 
-                None => in_left.abs().max(in_right.abs()) * input_gain,
+                None => sample_abs,
             };
 
             if loudness > self.current_peak {
                 self.current_peak = loudness;
                 self.current_coefficienet = limit / self.current_peak;
-            } else if self.current_peak > limit {
-                self.current_peak -= release_speed;
+            } else if !self.infinite_sustain
+                && loudness < self.current_peak
+                && self.current_peak > limit
+            {
+                self.current_peak *= release_speed;
 
-                if self.current_peak < limit {
-                    self.current_peak = limit
+                let max = loudness.max(limit);
+
+                if self.current_peak < max {
+                    self.current_peak = max
                 }
 
                 self.current_coefficienet = limit / self.current_peak;
