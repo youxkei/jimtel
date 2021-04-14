@@ -2,6 +2,9 @@ use lv2::prelude::*;
 
 mod loudness;
 
+const NO_SOUND_THRESHOLD: f32 = 0.0001;
+const NO_SOUND_DURATION_SAMPLES: u64 = 10;
+
 #[derive(PortCollection)]
 struct Ports {
     input_left: InputPort<Audio>,
@@ -13,6 +16,7 @@ struct Ports {
     output_gain: InputPort<Control>,
     limit: InputPort<Control>,
     release: InputPort<Control>,
+    use_loudness: InputPort<Control>,
     infinite_sustain: InputPort<Control>,
 }
 
@@ -58,8 +62,7 @@ impl Plugin for Jimtel {
         let total_gain = input_gain * output_gain;
         let limit = 10.0_f32.powf(limit_dbfs * 0.05);
         let release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
-        let no_sound_threshold = 10.0_f32.powf(-80.0 * 0.05);
-        let no_sound_duration_samples = 10;
+        let use_loudness = *ports.use_loudness;
         let infinite_sustain = *ports.infinite_sustain > 0.0;
 
         self.current_peak = self.current_peak.max(limit);
@@ -82,8 +85,8 @@ impl Plugin for Jimtel {
 
             let sample_abs = in_left.abs().max(in_right.abs()) * input_gain;
 
-            if sample_abs < no_sound_threshold {
-                if self.no_sound_count >= no_sound_duration_samples
+            if sample_abs < NO_SOUND_THRESHOLD {
+                if self.no_sound_count >= NO_SOUND_DURATION_SAMPLES
                     && (!infinite_sustain || self.current_peak == limit)
                 {
                     self.current_peak = limit;
@@ -100,8 +103,11 @@ impl Plugin for Jimtel {
             self.loudness
                 .add_samples(*in_left * input_gain, *in_right * input_gain);
 
-            let (loudness, no_sound) = match self.loudness.loudness() {
-                Some(loudness) => (loudness, false),
+            let (peak, no_sound) = match self.loudness.loudness() {
+                Some(loudness) => (
+                    loudness * use_loudness + sample_abs * (1.0 - use_loudness),
+                    false,
+                ),
 
                 None => {
                     if infinite_sustain {
@@ -112,16 +118,16 @@ impl Plugin for Jimtel {
                 }
             };
 
-            if loudness > self.current_peak {
-                self.current_peak = loudness;
+            if peak > self.current_peak {
+                self.current_peak = peak;
                 self.current_coefficienet = limit / self.current_peak;
             } else if !self.infinite_sustain
-                && loudness < self.current_peak
+                && peak < self.current_peak
                 && self.current_peak > limit
             {
                 self.current_peak *= release_speed;
 
-                let max = loudness.max(limit);
+                let max = peak.max(limit);
 
                 if self.current_peak < max {
                     self.current_peak = max
