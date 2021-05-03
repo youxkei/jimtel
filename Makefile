@@ -1,11 +1,9 @@
-SOURCES := $(shell find src -name "*.rs")
+SOURCES := $(shell find . -name "*.rs")
 
-target/release/libjimtel.so: ${SOURCES}
-	cargo build --release
+target/release/libjimtel_limiter.so: ${SOURCES}
+	cargo build --release --workspace
 
 .PHONY: install
-install: target/release/libjimtel.so
-	mkdir -p ~/.lv2/jimtel.lv2
-	cp target/release/libjimtel.so ~/.lv2/jimtel.lv2/
-	cp lv2/manifest.ttl            ~/.lv2/jimtel.lv2/
-	cp lv2/jimtel.ttl              ~/.lv2/jimtel.lv2/
+install: target/release/libjimtel_limiter.so
+	mkdir -p ~/.vst
+	cp target/release/libjimtel_limiter.so ~/.vst
