@@ -1,4 +1,4 @@
-mod loudness;
+pub mod loudness;
 
 /*
 use lv2::prelude::*;

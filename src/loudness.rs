@@ -1,113 +1,125 @@
 use std::f32;
 
-enum State {
-    BufferFilling,
-    BufferFilled,
+#[derive(Clone, Copy, Default)]
+struct Sample {
+    left: f32,
+    right: f32,
+    power: f32,
 }
 
 pub struct Loudness {
+    window_ms: f32,
     samples_num_per_window: usize,
-    interval_samples_num: usize,
 
     left_prefilter: Prefilter,
     right_prefilter: Prefilter,
 
-    sample_buffer: Vec<f32>,
+    sample_buffer: Vec<Sample>,
     current_sample: usize,
     count: usize,
-    current_loudness: Option<f32>,
 
-    state: State,
+    limit: f32,
+    release_ms: f32,
+
+    loudness_peak: f32,
+    coefficient: f32,
+    release_diff: f32,
 }
 
 impl Loudness {
-    pub fn new(sample_rate_hz: f32, window_sec: f32, interval_sec: f32) -> Loudness {
-        let samples_num_per_window = (sample_rate_hz * window_sec) as usize;
+    pub fn new(sample_rate_hz: f32, window_ms: f32) -> Loudness {
+        let samples_num_per_window = (sample_rate_hz * (window_ms / 1000.0)) as usize;
 
         Loudness {
+            window_ms: window_ms,
             samples_num_per_window: samples_num_per_window,
-            interval_samples_num: (sample_rate_hz * interval_sec) as usize,
 
             left_prefilter: Prefilter::new(sample_rate_hz),
             right_prefilter: Prefilter::new(sample_rate_hz),
 
-            sample_buffer: vec![0.0; samples_num_per_window],
+            sample_buffer: vec![Sample::default(); samples_num_per_window * 2],
             current_sample: 0,
             count: 0,
-            current_loudness: None,
 
-            state: State::BufferFilling,
+            limit: 1.0,
+            release_ms: 0.0,
+
+            loudness_peak: 0.0,
+            coefficient: 1.0,
+            release_diff: 0.0,
         }
     }
 
-    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) {
+    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> (f32, f32) {
+        self.sample_buffer[self.current_sample].left = left_sample;
+        self.sample_buffer[self.current_sample].right = right_sample;
+
         let left_sample = self.left_prefilter.apply(left_sample);
         let right_sample = self.right_prefilter.apply(right_sample);
 
-        let left_sample = left_sample * left_sample;
-        let right_sample = right_sample * right_sample;
+        let power = left_sample * left_sample + right_sample * right_sample;
 
-        let sample = left_sample + right_sample;
+        self.sample_buffer[self.current_sample].power = power;
 
-        self.sample_buffer[self.current_sample] = sample;
         self.current_sample += 1;
-        self.count += 1;
-
-        if self.current_sample >= self.samples_num_per_window {
-            self.current_sample = 0
+        if self.current_sample >= self.samples_num_per_window * 2 {
+            self.current_sample = 0;
         }
 
-        let calculate_loudness = match self.state {
-            State::BufferFilling => {
-                let calculate_loudness = self.count >= self.samples_num_per_window;
-
-                if calculate_loudness {
-                    self.state = State::BufferFilled;
-                }
-
-                calculate_loudness
-            }
-
-            State::BufferFilled => self.count >= self.interval_samples_num,
+        let index = if self.current_sample >= self.samples_num_per_window {
+            self.current_sample - self.samples_num_per_window
+        } else {
+            self.current_sample + self.samples_num_per_window
         };
 
-        if !calculate_loudness {
-            return;
-        }
+        self.count += 1;
+        if self.count >= self.samples_num_per_window {
+            self.count = 0;
 
-        self.count = 0;
+            let mut sum = 0.0;
+            let mut residue = 0.0;
 
-        let mut index = self.current_sample;
+            for i in index..(index + self.samples_num_per_window) {
+                let power = self.sample_buffer[i].power;
 
-        let mut sum = 0.0;
-        let mut residue = 0.0;
+                let tmp = sum + (residue + power);
+                residue = (residue + power) - (tmp - sum);
+                sum = tmp;
+            }
 
-        for _ in 0..self.samples_num_per_window {
-            let sample = self.sample_buffer[index];
+            let loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
 
-            let tmp = sum + (residue + sample);
-            residue = (residue + sample) - (tmp - sum);
-            sum = tmp;
+            if loudness > self.loudness_peak {
+                self.loudness_peak = loudness;
+                self.coefficient = self.limit / loudness;
+                self.release_diff = 0.0;
+            } else {
+                if self.release_diff > 0.0 {
+                    self.loudness_peak -= self.release_diff;
 
-            index += 1;
+                    let max = loudness.max(self.limit);
 
-            if index >= self.samples_num_per_window {
-                index = 0
+                    if self.loudness_peak < max {
+                        self.loudness_peak = max;
+                        self.release_diff = 0.0;
+                    }
+
+                    self.coefficient = self.limit / self.loudness_peak;
+                } else {
+                    self.release_diff = (self.loudness_peak - self.limit) / (self.release_ms / self.window_ms);
+                }
             }
         }
 
-        self.current_loudness = Some(0.9235 * (sum / self.samples_num_per_window as f32).sqrt());
+        (self.sample_buffer[index].left * self.coefficient, self.sample_buffer[index].right * self.coefficient)
     }
 
-    pub fn loudness(&self) -> Option<f32> {
-        self.current_loudness
-    }
+    pub fn set_params(&mut self, limit: f32, release_ms: f32) {
+        self.limit = limit;
+        self.release_ms = release_ms;
 
-    pub fn reset(&mut self) {
-        self.current_sample = 0;
-        self.count = 0;
-        self.current_loudness = None;
-        self.state = State::BufferFilling;
+        self.loudness_peak = self.loudness_peak.max(limit);
+        self.coefficient = limit / self.loudness_peak;
     }
 }
 

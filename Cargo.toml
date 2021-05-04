@@ -11,8 +11,10 @@ edition = "2018"
 [dependencies]
 #lv2 = "0.6.0"
 #itertools = "0.10.0"
+vst = "0.2.1"
 
 [workspace]
 members = [
-  "limiter"
+  "params",
+  "limiter",
 ]
