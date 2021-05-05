@@ -16,5 +16,5 @@ vst = "0.2.1"
 [workspace]
 members = [
   "params",
-  "limiter",
+  "loudness_limiter",
 ]

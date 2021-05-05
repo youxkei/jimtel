@@ -47,7 +47,7 @@ impl Default for Limiter {
 impl Plugin for Limiter {
     fn get_info(&self) -> Info {
         Info {
-            name: "Jimtel Limiter".to_string(),
+            name: "Jimtel Loudness Limiter".to_string(),
             unique_id: 2065809688,
             inputs: 2,
             outputs: 2,

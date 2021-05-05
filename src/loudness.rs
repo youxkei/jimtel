@@ -117,8 +117,8 @@ impl Loudness {
 
     pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32) {
         self.limit = limit;
-        self.attack_speed = limit.powf(-1000.0 / (self.sample_rate_hz * attack_ms));
-        self.release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
+        self.attack_speed = 1000_f32.powf(1000.0 / (self.sample_rate_hz * attack_ms));
+        self.release_speed = 1000_f32.powf(-1000.0 / (self.sample_rate_hz * release_ms));
 
         self.loudness_peak = self.loudness_peak.max(limit);
         self.coefficient = limit / self.loudness_peak;

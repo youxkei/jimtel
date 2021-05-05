@@ -1,5 +1,5 @@
 [package]
-name = "jimtel_limiter"
+name = "jimtel_loudness_limiter"
 version = "0.1.0"
 edition = "2018"
 
