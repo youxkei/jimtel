@@ -8,7 +8,7 @@ struct Sample {
 }
 
 pub struct Loudness {
-    window_ms: f32,
+    sample_rate_hz: f32,
     samples_num_per_window: usize,
 
     left_prefilter: Prefilter,
@@ -19,11 +19,12 @@ pub struct Loudness {
     count: usize,
 
     limit: f32,
-    release_ms: f32,
+    attack_speed: f32,
+    release_speed: f32,
 
+    loudness: f32,
     loudness_peak: f32,
     coefficient: f32,
-    release_diff: f32,
 }
 
 impl Loudness {
@@ -31,7 +32,7 @@ impl Loudness {
         let samples_num_per_window = (sample_rate_hz * (window_ms / 1000.0)) as usize;
 
         Loudness {
-            window_ms: window_ms,
+            sample_rate_hz: sample_rate_hz,
             samples_num_per_window: samples_num_per_window,
 
             left_prefilter: Prefilter::new(sample_rate_hz),
@@ -42,11 +43,12 @@ impl Loudness {
             count: 0,
 
             limit: 1.0,
-            release_ms: 0.0,
+            attack_speed: 0.0,
+            release_speed: 0.0,
 
+            loudness: 0.0,
             loudness_peak: 0.0,
             coefficient: 1.0,
-            release_diff: 0.0,
         }
     }
 
@@ -66,7 +68,7 @@ impl Loudness {
             self.current_sample = 0;
         }
 
-        let index = if self.current_sample >= self.samples_num_per_window {
+        let out_index = if self.current_sample >= self.samples_num_per_window {
             self.current_sample - self.samples_num_per_window
         } else {
             self.current_sample + self.samples_num_per_window
@@ -79,7 +81,7 @@ impl Loudness {
             let mut sum = 0.0;
             let mut residue = 0.0;
 
-            for i in index..(index + self.samples_num_per_window) {
+            for i in out_index..(out_index + self.samples_num_per_window) {
                 let power = self.sample_buffer[i].power;
 
                 let tmp = sum + (residue + power);
@@ -87,36 +89,36 @@ impl Loudness {
                 sum = tmp;
             }
 
-            let loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
-
-            if loudness > self.loudness_peak {
-                self.loudness_peak = loudness;
-                self.coefficient = self.limit / loudness;
-                self.release_diff = 0.0;
-            } else {
-                if self.release_diff > 0.0 {
-                    self.loudness_peak -= self.release_diff;
-
-                    let max = loudness.max(self.limit);
-
-                    if self.loudness_peak < max {
-                        self.loudness_peak = max;
-                        self.release_diff = 0.0;
-                    }
-
-                    self.coefficient = self.limit / self.loudness_peak;
-                } else {
-                    self.release_diff = (self.loudness_peak - self.limit) / (self.release_ms / self.window_ms);
-                }
-            }
+            self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
         }
 
-        (self.sample_buffer[index].left * self.coefficient, self.sample_buffer[index].right * self.coefficient)
+        if self.loudness > self.loudness_peak {
+            self.loudness_peak *= self.attack_speed;
+
+            if self.loudness_peak > self.loudness {
+                self.loudness_peak = self.loudness;
+            }
+
+            self.coefficient = self.limit / self.loudness_peak;
+        } else if self.loudness < self.loudness_peak && self.limit < self.loudness_peak {
+            self.loudness_peak *= self.release_speed;
+
+            let max = self.loudness.max(self.limit);
+
+            if self.loudness_peak < max {
+                self.loudness_peak = max;
+            }
+
+            self.coefficient = self.limit / self.loudness_peak;
+        }
+
+        (self.sample_buffer[out_index].left * self.coefficient, self.sample_buffer[out_index].right * self.coefficient)
     }
 
-    pub fn set_params(&mut self, limit: f32, release_ms: f32) {
+    pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32) {
         self.limit = limit;
-        self.release_ms = release_ms;
+        self.attack_speed = limit.powf(-1000.0 / (self.sample_rate_hz * attack_ms));
+        self.release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
 
         self.loudness_peak = self.loudness_peak.max(limit);
         self.coefficient = limit / self.loudness_peak;
