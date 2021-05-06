@@ -127,7 +127,10 @@ impl Loudness {
             self.coefficient = self.limit / self.loudness_peak;
         }
 
-        (self.sample_buffer[out_index].left * self.coefficient, self.sample_buffer[out_index].right * self.coefficient)
+        (
+            self.sample_buffer[out_index].left * self.coefficient,
+            self.sample_buffer[out_index].right * self.coefficient,
+        )
     }
 
     pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32) {
