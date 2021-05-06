@@ -98,7 +98,7 @@ impl Loudness {
 
             if self.loudness < 0.00001 {
                 self.initial = true;
-            } else if self.loudness < self.prev_loudness {
+            } else if self.loudness > self.limit && self.loudness < self.prev_loudness {
                 self.initial = false;
             }
         }

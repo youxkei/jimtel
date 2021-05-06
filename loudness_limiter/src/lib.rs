@@ -1,8 +1,8 @@
 #![allow(incomplete_features)]
 #![feature(generic_associated_types)]
 
-use serde::{Serialize, Deserialize};
 use baseplug::{Plugin, ProcessContext};
+use serde::{Deserialize, Serialize};
 
 baseplug::model! {
     #[derive(Serialize, Deserialize)]
@@ -28,7 +28,6 @@ baseplug::model! {
         release: f32,
     }
 }
-
 
 impl Default for LoudnessLimiterModel {
     fn default() -> Self {
@@ -68,7 +67,8 @@ impl Plugin for LoudnessLimiter {
         let input = &ctx.inputs[0].buffers;
         let output = &mut ctx.outputs[0].buffers;
 
-        self.loudness.set_params(model.limit[0], model.attack[0], model.release[0]);
+        self.loudness
+            .set_params(model.limit[0], model.attack[0], model.release[0]);
 
         for i in 0..ctx.nframes {
             let left_sample = input[0][i] * model.input_gain[0];
