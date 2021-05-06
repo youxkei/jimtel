@@ -21,11 +21,12 @@ pub struct Loudness {
     limit: f32,
     attack_speed: f32,
     release_speed: f32,
-    max_attack_diff: f32,
 
     loudness: f32,
+    prev_loudness: f32,
     loudness_peak: f32,
     coefficient: f32,
+    initial: bool,
 }
 
 impl Loudness {
@@ -46,11 +47,12 @@ impl Loudness {
             limit: 1.0,
             attack_speed: 0.0,
             release_speed: 0.0,
-            max_attack_diff: 0.0,
 
             loudness: 0.0,
+            prev_loudness: 0.0,
             loudness_peak: 0.0,
             coefficient: 1.0,
+            initial: true,
         }
     }
 
@@ -91,11 +93,18 @@ impl Loudness {
                 sum = tmp;
             }
 
+            self.prev_loudness = self.loudness;
             self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
+
+            if self.loudness < 0.00001 {
+                self.initial = true;
+            } else if self.loudness < self.prev_loudness {
+                self.initial = false;
+            }
         }
 
         if self.loudness > self.loudness_peak {
-            if self.loudness / self.loudness_peak > self.max_attack_diff {
+            if self.initial {
                 self.loudness_peak = self.loudness;
             } else {
                 self.loudness_peak *= self.attack_speed;
@@ -121,9 +130,8 @@ impl Loudness {
         (self.sample_buffer[out_index].left * self.coefficient, self.sample_buffer[out_index].right * self.coefficient)
     }
 
-    pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32, max_attack_diff: f32) {
+    pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32) {
         self.limit = limit;
-        self.max_attack_diff = max_attack_diff;
         self.attack_speed = limit.powf(-1000.0 / (self.sample_rate_hz * attack_ms));
         self.release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
 

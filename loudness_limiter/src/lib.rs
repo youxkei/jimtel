@@ -13,23 +13,19 @@ baseplug::model! {
 
         #[model(min = -80.0, max = 80.0)]
         #[parameter(name = "Output Gain", unit = "Decibels")]
-        output_gain: f32, // -80dB ~ 80dB
+        output_gain: f32,
 
         #[model(min = -80.0, max = 0.0)]
         #[parameter(name = "Limit", unit = "Decibels")]
-        limit: f32, // -80LKFS ~ 0LKFS
+        limit: f32,
 
         #[model(min = 0.0, max = 5000.0)]
         #[parameter(name = "Attack", unit = "Generic")]
-        attack: f32, // 0ms ~ 5000ms
+        attack: f32,
 
         #[model(min = 0.0, max = 5000.0)]
         #[parameter(name = "Release", unit = "Generic")]
-        release: f32, // 0ms ~ 5000ms
-
-        #[model(min = 0.0, max = 20.0)]
-        #[parameter(name = "Max Attack Diff", unit = "Decibels")]
-        max_attack_diff: f32, // 0dB ~ 20dB
+        release: f32,
     }
 }
 
@@ -42,7 +38,6 @@ impl Default for LoudnessLimiterModel {
             limit: 1.0,
             attack: 1000.0,
             release: 1000.0,
-            max_attack_diff: 1.0,
         }
     }
 }
@@ -73,7 +68,7 @@ impl Plugin for LoudnessLimiter {
         let input = &ctx.inputs[0].buffers;
         let output = &mut ctx.outputs[0].buffers;
 
-        self.loudness.set_params(model.limit[0], model.attack[0], model.release[0], model.max_attack_diff[0]);
+        self.loudness.set_params(model.limit[0], model.attack[0], model.release[0]);
 
         for i in 0..ctx.nframes {
             let left_sample = input[0][i] * model.input_gain[0];
