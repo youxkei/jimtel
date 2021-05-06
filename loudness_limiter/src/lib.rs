@@ -10,8 +10,9 @@ struct LimiterParams {
     input_gain: AtomicFloat, // -80dB ~ 80dB
     output_gain: AtomicFloat, // -80dB ~ 80dB
     limit: AtomicFloat, // -80LKFS ~ 0LKFS
-    attack: AtomicFloat, // 0ms ~ 2000ms
-    release: AtomicFloat, // 0ms ~ 2000ms
+    attack: AtomicFloat, // 0ms ~ 5000ms
+    release: AtomicFloat, // 0ms ~ 5000ms
+    max_attack_diff: AtomicFloat, // 0dB ~ 20dB
 }
 
 impl Default for LimiterParams {
@@ -22,6 +23,7 @@ impl Default for LimiterParams {
             limit: AtomicFloat::new(1.0),
             attack: AtomicFloat::new(1.0),
             release: AtomicFloat::new(1.0),
+            max_attack_diff: AtomicFloat::new(1.0),
         }
     }
 }
@@ -66,14 +68,16 @@ impl Plugin for Limiter {
         let input_gain_db = (self.params.input_gain.get() - 0.5) * 160.0;
         let output_gain_db = (self.params.output_gain.get() - 0.5) * 160.0;
         let limit_lkfs = (self.params.limit.get() - 1.0) * 80.0;
-        let attack_ms = (self.params.attack.get() * 2000.0).max(1.0);
-        let release_ms = (self.params.release.get() * 2000.0).max(1.0);
+        let attack_ms = (self.params.attack.get() * 5000.0).max(1.0);
+        let release_ms = (self.params.release.get() * 5000.0).max(1.0);
+        let max_attack_diff_db = self.params.max_attack_diff.get() * 80.0;
 
-        let input_gain = 10.0_f32.powf(input_gain_db * 0.05);
-        let output_gain = 10.0_f32.powf(output_gain_db * 0.05);
-        let limit = 10.0_f32.powf(limit_lkfs * 0.05);
+        let input_gain = 10_f32.powf(input_gain_db * 0.05);
+        let output_gain = 10_f32.powf(output_gain_db * 0.05);
+        let limit = 10_f32.powf(limit_lkfs * 0.05);
+        let max_attack_diff = 10_f32.powf(max_attack_diff_db * 0.05);
 
-        self.loudness.set_params(limit, attack_ms, release_ms);
+        self.loudness.set_params(limit, attack_ms, release_ms, max_attack_diff);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
