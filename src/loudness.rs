@@ -96,9 +96,9 @@ impl Loudness {
             self.prev_loudness = self.loudness;
             self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
 
-            if self.loudness < 0.00001 {
+            if self.prev_loudness < 0.001 && self.loudness > 0.001 {
                 self.initial = true;
-            } else if self.loudness > self.limit && self.loudness < self.prev_loudness {
+            } else {
                 self.initial = false;
             }
         }

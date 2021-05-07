@@ -5,12 +5,11 @@ authors = ["youxkei <youxkei@gmail.com>"]
 license = "CC0 1.0"
 edition = "2018"
 
-#[lib]
-#crate-type = ["cdylib"]
-
 [dependencies]
+vst = "0.2.1"
 
 [workspace]
 members = [
+  "params",
   "loudness_limiter",
 ]
