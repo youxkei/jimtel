@@ -5,30 +5,19 @@ use vst::plugin::{Category, Info, Plugin, PluginParameters};
 use vst::util::AtomicFloat;
 
 #[derive(params::Params)]
-struct LimiterParams {
+struct LoudnessLimiterParams {
     input_gain: AtomicFloat,  // -80dB ~ 80dB
     output_gain: AtomicFloat, // -80dB ~ 80dB
     limit: AtomicFloat,       // -80LKFS ~ 0LKFS
+    hard_limit: AtomicFloat,  // -80dBFS ~ 0dBFS
     attack: AtomicFloat,      // 0ms ~ 5000ms
     release: AtomicFloat,     // 0ms ~ 5000ms
-}
-
-impl Default for LimiterParams {
-    fn default() -> Self {
-        LimiterParams {
-            input_gain: AtomicFloat::new(0.5),
-            output_gain: AtomicFloat::new(0.5),
-            limit: AtomicFloat::new(1.0),
-            attack: AtomicFloat::new(1.0),
-            release: AtomicFloat::new(1.0),
-        }
-    }
 }
 
 struct LoudnessLimiter {
     loudness: jimtel::loudness::Loudness,
 
-    params: Arc<LimiterParams>,
+    params: Arc<LoudnessLimiterParams>,
 }
 
 impl Default for LoudnessLimiter {
@@ -37,8 +26,15 @@ impl Default for LoudnessLimiter {
         let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 50.0);
 
         Self {
-            loudness: loudness,
-            params: Arc::new(LimiterParams::default()),
+            loudness,
+            params: Arc::new(LoudnessLimiterParams {
+                input_gain: AtomicFloat::new(0.5),
+                output_gain: AtomicFloat::new(0.5),
+                limit: AtomicFloat::new(1.0),
+                hard_limit: AtomicFloat::new(1.0),
+                attack: AtomicFloat::new(1.0),
+                release: AtomicFloat::new(1.0),
+            }),
         }
     }
 }
@@ -50,7 +46,7 @@ impl Plugin for LoudnessLimiter {
             unique_id: 2065809688,
             inputs: 2,
             outputs: 2,
-            parameters: LimiterParams::num_params() as i32,
+            parameters: LoudnessLimiterParams::num_params() as i32,
             category: Category::Mastering,
 
             ..Default::default()
@@ -65,14 +61,17 @@ impl Plugin for LoudnessLimiter {
         let input_gain_db = (self.params.input_gain.get() - 0.5) * 160.0;
         let output_gain_db = (self.params.output_gain.get() - 0.5) * 160.0;
         let limit_lkfs = (self.params.limit.get() - 1.0) * 80.0;
+        let hard_limit_dbfs = (self.params.hard_limit.get() - 1.0) * 80.0;
         let attack_ms = (self.params.attack.get() * 5000.0).max(1.0);
         let release_ms = (self.params.release.get() * 5000.0).max(1.0);
 
         let input_gain = 10_f32.powf(input_gain_db * 0.05);
         let output_gain = 10_f32.powf(output_gain_db * 0.05);
         let limit = 10_f32.powf(limit_lkfs * 0.05);
+        let hard_limit = 10_f32.powf(hard_limit_dbfs * 0.05);
 
-        self.loudness.set_params(limit, attack_ms, release_ms);
+        self.loudness
+            .set_params(limit, hard_limit, attack_ms, release_ms);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),

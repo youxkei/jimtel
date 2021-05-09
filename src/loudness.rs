@@ -19,6 +19,7 @@ pub struct Loudness {
     count: usize,
 
     limit: f32,
+    hard_limit: f32,
     attack_speed: f32,
     release_speed: f32,
 
@@ -45,6 +46,7 @@ impl Loudness {
             count: 0,
 
             limit: 1.0,
+            hard_limit: 1.0,
             attack_speed: 0.0,
             release_speed: 0.0,
 
@@ -128,13 +130,16 @@ impl Loudness {
         }
 
         (
-            self.sample_buffer[out_index].left * self.coefficient,
-            self.sample_buffer[out_index].right * self.coefficient,
+            (self.sample_buffer[out_index].left * self.coefficient)
+                .clamp(-self.hard_limit, self.hard_limit),
+            (self.sample_buffer[out_index].right * self.coefficient)
+                .clamp(-self.hard_limit, self.hard_limit),
         )
     }
 
-    pub fn set_params(&mut self, limit: f32, attack_ms: f32, release_ms: f32) {
+    pub fn set_params(&mut self, limit: f32, hard_limit: f32, attack_ms: f32, release_ms: f32) {
         self.limit = limit;
+        self.hard_limit = hard_limit;
         self.attack_speed = limit.powf(-1000.0 / (self.sample_rate_hz * attack_ms));
         self.release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
 
