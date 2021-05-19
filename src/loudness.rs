@@ -20,14 +20,12 @@ pub struct Loudness {
 
     limit: f32,
     hard_limit: f32,
-    attack_speed: f32,
-    release_speed: f32,
+    attack_coefficient: f32,
+    release_coefficient: f32,
 
     loudness: f32,
-    prev_loudness: f32,
-    loudness_peak: f32,
+    loudness_envelope: f32,
     coefficient: f32,
-    initial: bool,
 }
 
 impl Loudness {
@@ -47,14 +45,12 @@ impl Loudness {
 
             limit: 1.0,
             hard_limit: 1.0,
-            attack_speed: 0.0,
-            release_speed: 0.0,
+            attack_coefficient: 0.0,
+            release_coefficient: 0.0,
 
             loudness: 0.0,
-            prev_loudness: 0.0,
-            loudness_peak: 0.0,
+            loudness_envelope: 0.0,
             coefficient: 1.0,
-            initial: true,
         }
     }
 
@@ -95,38 +91,21 @@ impl Loudness {
                 sum = tmp;
             }
 
-            self.prev_loudness = self.loudness;
             self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
-
-            if self.prev_loudness < 0.001 && self.loudness > 0.001 {
-                self.initial = true;
-            } else {
-                self.initial = false;
-            }
         }
 
-        if self.loudness > self.loudness_peak {
-            if self.initial {
-                self.loudness_peak = self.loudness;
-            } else {
-                self.loudness_peak *= self.attack_speed;
+        if self.loudness > self.loudness_envelope {
+            self.loudness_envelope +=
+                (self.loudness - self.loudness_envelope) * self.attack_coefficient;
+        } else {
+            self.loudness_envelope +=
+                (self.loudness - self.loudness_envelope) * self.release_coefficient;
+        }
 
-                if self.loudness_peak > self.loudness {
-                    self.loudness_peak = self.loudness;
-                }
-            }
-
-            self.coefficient = self.limit / self.loudness_peak;
-        } else if self.loudness < self.loudness_peak && self.limit < self.loudness_peak {
-            self.loudness_peak *= self.release_speed;
-
-            let max = self.loudness.max(self.limit);
-
-            if self.loudness_peak < max {
-                self.loudness_peak = max;
-            }
-
-            self.coefficient = self.limit / self.loudness_peak;
+        if self.loudness_envelope > self.limit {
+            self.coefficient = self.limit / self.loudness_envelope;
+        } else {
+            self.coefficient = 1.0;
         }
 
         (
@@ -140,11 +119,8 @@ impl Loudness {
     pub fn set_params(&mut self, limit: f32, hard_limit: f32, attack_ms: f32, release_ms: f32) {
         self.limit = limit;
         self.hard_limit = hard_limit;
-        self.attack_speed = limit.powf(-1000.0 / (self.sample_rate_hz * attack_ms));
-        self.release_speed = limit.powf(1000.0 / (self.sample_rate_hz * release_ms));
-
-        self.loudness_peak = self.loudness_peak.max(limit);
-        self.coefficient = limit / self.loudness_peak;
+        self.attack_coefficient = (4000.0 / (attack_ms * self.sample_rate_hz)).min(1.0);
+        self.release_coefficient = (4000.0 / (release_ms * self.sample_rate_hz)).min(1.0);
     }
 }
 
