@@ -24,8 +24,11 @@ pub struct Loudness {
     release_coefficient: f32,
 
     loudness: f32,
+    prev_loudness: f32,
     loudness_envelope: f32,
     coefficient: f32,
+    rise: bool,
+    no_sound: bool,
 }
 
 impl Loudness {
@@ -49,12 +52,17 @@ impl Loudness {
             release_coefficient: 0.0,
 
             loudness: 0.0,
+            prev_loudness: 0.0,
             loudness_envelope: 0.0,
             coefficient: 1.0,
+            rise: false,
+            no_sound: true,
         }
     }
 
     pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> (f32, f32) {
+        let sample_abs = left_sample.abs().max(right_sample.abs());
+
         self.sample_buffer[self.current_sample].left = left_sample;
         self.sample_buffer[self.current_sample].right = right_sample;
 
@@ -76,27 +84,54 @@ impl Loudness {
             self.current_sample + self.samples_num_per_window
         };
 
-        self.count += 1;
-        if self.count >= self.samples_num_per_window {
-            self.count = 0;
+        if sample_abs > 0.01 {
+            self.no_sound = false;
+        }
 
-            let mut sum = 0.0;
-            let mut residue = 0.0;
+        if !self.no_sound {
+            self.count += 1;
+            if self.count >= self.samples_num_per_window {
+                self.count = 0;
 
-            for i in out_index..(out_index + self.samples_num_per_window) {
-                let power = self.sample_buffer[i].power;
+                let mut sum = 0.0;
+                let mut residue = 0.0;
 
-                let tmp = sum + (residue + power);
-                residue = (residue + power) - (tmp - sum);
-                sum = tmp;
+                for index in out_index..(out_index + self.samples_num_per_window) {
+                    let index = if index >= self.samples_num_per_window * 2 {
+                        index - self.samples_num_per_window * 2
+                    } else {
+                        index
+                    };
+
+                    let power = self.sample_buffer[index].power;
+
+                    let tmp = sum + (residue + power);
+                    residue = (residue + power) - (tmp - sum);
+                    sum = tmp;
+                }
+
+                self.prev_loudness = self.loudness;
+                self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
+
+                if self.prev_loudness < self.limit && self.loudness > self.limit {
+                    self.rise = true;
+                } else {
+                    self.rise = false;
+                }
+
+                if self.loudness < 0.01 {
+                    self.no_sound = true;
+                }
             }
-
-            self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
         }
 
         if self.loudness > self.loudness_envelope {
-            self.loudness_envelope +=
-                (self.loudness - self.loudness_envelope) * self.attack_coefficient;
+            if self.rise {
+                self.loudness_envelope = self.loudness;
+            } else {
+                self.loudness_envelope +=
+                    (self.loudness - self.loudness_envelope) * self.attack_coefficient;
+            }
         } else {
             self.loudness_envelope +=
                 (self.loudness - self.loudness_envelope) * self.release_coefficient;

@@ -23,7 +23,7 @@ struct LoudnessLimiter {
 impl Default for LoudnessLimiter {
     fn default() -> Self {
         let sample_rate_hz = 48000.0;
-        let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 50.0);
+        let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 10.0);
 
         Self {
             loudness,
@@ -56,14 +56,15 @@ impl Plugin for LoudnessLimiter {
     fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
         let (input_buffer, output_buffer) = buffer.split();
         let (in_left_buffer, in_right_buffer) = input_buffer.split_at(1);
-        let (mut out_left_buffer, mut out_right_buffer) = output_buffer.split_at_mut(1);
+        let (mut out_left_buffer, output_buffer) = output_buffer.split_at_mut(1);
+        let (mut out_right_buffer, _output_buffer) = output_buffer.split_at_mut(1);
 
         let input_gain_db = (self.params.input_gain.get() - 0.5) * 160.0;
         let output_gain_db = (self.params.output_gain.get() - 0.5) * 160.0;
         let limit_lkfs = (self.params.limit.get() - 1.0) * 80.0;
         let hard_limit_dbfs = (self.params.hard_limit.get() - 1.0) * 80.0;
-        let attack_ms = (self.params.attack.get() * 5000.0).max(1.0);
-        let release_ms = (self.params.release.get() * 5000.0).max(1.0);
+        let attack_ms = self.params.attack.get() * 5000.0;
+        let release_ms = self.params.release.get() * 5000.0;
 
         let input_gain = 10_f32.powf(input_gain_db * 0.05);
         let output_gain = 10_f32.powf(output_gain_db * 0.05);
