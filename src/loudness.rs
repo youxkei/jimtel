@@ -113,13 +113,13 @@ impl Loudness {
                 self.prev_loudness = self.loudness;
                 self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
 
-                if self.prev_loudness < self.limit && self.loudness > self.limit {
+                if self.prev_loudness < 0.001 && self.loudness > 0.001 {
                     self.rise = true;
                 } else {
                     self.rise = false;
                 }
 
-                if self.loudness < 0.01 {
+                if self.loudness < 0.001 {
                     self.no_sound = true;
                 }
             }
