@@ -6,12 +6,23 @@ use vst::util::AtomicFloat;
 
 #[derive(params::Params)]
 struct LoudnessLimiterParams {
-    input_gain: AtomicFloat,  // -80dB ~ 80dB
-    output_gain: AtomicFloat, // -80dB ~ 80dB
-    limit: AtomicFloat,       // -80LKFS ~ 0LKFS
-    hard_limit: AtomicFloat,  // -80dBFS ~ 0dBFS
-    attack: AtomicFloat,      // 0ms ~ 5000ms
-    release: AtomicFloat,     // 0ms ~ 5000ms
+    #[param(unit = "dB", min = "-80", max = "80")]
+    input_gain: AtomicFloat,
+
+    #[param(unit = "dB", min = "-80", max = "80")]
+    output_gain: AtomicFloat,
+
+    #[param(unit = "LKFS", min = "-80", max = "0")]
+    limit: AtomicFloat,
+
+    #[param(unit = "dBFS", min = "-80", max = "0")]
+    hard_limit: AtomicFloat,
+
+    #[param(unit = "ms", min = "0", max = "5000")]
+    attack: AtomicFloat,
+
+    #[param(unit = "ms", min = "0", max = "5000")]
+    release: AtomicFloat,
 }
 
 struct LoudnessLimiter {
@@ -28,12 +39,12 @@ impl Default for LoudnessLimiter {
         Self {
             loudness,
             params: Arc::new(LoudnessLimiterParams {
-                input_gain: AtomicFloat::new(0.5),
-                output_gain: AtomicFloat::new(0.5),
-                limit: AtomicFloat::new(1.0),
-                hard_limit: AtomicFloat::new(1.0),
-                attack: AtomicFloat::new(1.0),
-                release: AtomicFloat::new(1.0),
+                input_gain: AtomicFloat::new(0.0),
+                output_gain: AtomicFloat::new(0.0),
+                limit: AtomicFloat::new(0.0),
+                hard_limit: AtomicFloat::new(0.0),
+                attack: AtomicFloat::new(1000.0),
+                release: AtomicFloat::new(1000.0),
             }),
         }
     }
@@ -59,17 +70,12 @@ impl Plugin for LoudnessLimiter {
         let (mut out_left_buffer, output_buffer) = output_buffer.split_at_mut(1);
         let (mut out_right_buffer, _output_buffer) = output_buffer.split_at_mut(1);
 
-        let input_gain_db = (self.params.input_gain.get() - 0.5) * 160.0;
-        let output_gain_db = (self.params.output_gain.get() - 0.5) * 160.0;
-        let limit_lkfs = (self.params.limit.get() - 1.0) * 80.0;
-        let hard_limit_dbfs = (self.params.hard_limit.get() - 1.0) * 80.0;
-        let attack_ms = self.params.attack.get() * 5000.0;
-        let release_ms = self.params.release.get() * 5000.0;
-
-        let input_gain = 10_f32.powf(input_gain_db * 0.05);
-        let output_gain = 10_f32.powf(output_gain_db * 0.05);
-        let limit = 10_f32.powf(limit_lkfs * 0.05);
-        let hard_limit = 10_f32.powf(hard_limit_dbfs * 0.05);
+        let input_gain = self.params.input_gain.get();
+        let output_gain = self.params.output_gain.get();
+        let limit = self.params.limit.get();
+        let hard_limit = self.params.hard_limit.get();
+        let attack_ms = self.params.attack.get();
+        let release_ms = self.params.release.get();
 
         self.loudness
             .set_params(limit, hard_limit, attack_ms, release_ms);
