@@ -17,9 +17,6 @@ pub struct LoudnessLimiterParams {
     pub hard_limit: AtomicFloat,
 
     #[param(unit = "ms", min = "0", max = "5000")]
-    pub attack: AtomicFloat,
-
-    #[param(unit = "ms", min = "0", max = "5000")]
     pub release: AtomicFloat,
 }
 
@@ -30,7 +27,6 @@ impl LoudnessLimiterParams {
             output_gain: AtomicFloat::new(0.0),
             limit: AtomicFloat::new(0.0),
             hard_limit: AtomicFloat::new(0.0),
-            attack: AtomicFloat::new(1000.0),
             release: AtomicFloat::new(1000.0),
         }
     }

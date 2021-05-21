@@ -119,11 +119,9 @@ impl Plugin for LoudnessLimiter {
         let output_gain = self.params.output_gain.get();
         let limit = self.params.limit.get();
         let hard_limit = self.params.hard_limit.get();
-        let attack_ms = self.params.attack.get();
         let release_ms = self.params.release.get();
 
-        self.loudness
-            .set_params(limit, hard_limit, attack_ms, release_ms);
+        self.loudness.set_params(limit, hard_limit, 0.0, release_ms);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
