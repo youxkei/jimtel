@@ -86,7 +86,7 @@ struct LoudnessLimiter {
 impl Default for LoudnessLimiter {
     fn default() -> Self {
         let sample_rate_hz = 48000.0;
-        let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 10.0);
+        let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 1);
 
         Self {
             loudness,

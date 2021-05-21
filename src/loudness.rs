@@ -32,9 +32,7 @@ pub struct Loudness {
 }
 
 impl Loudness {
-    pub fn new(sample_rate_hz: f32, window_ms: f32) -> Loudness {
-        let samples_num_per_window = (sample_rate_hz * (window_ms / 1000.0)) as usize;
-
+    pub fn new(sample_rate_hz: f32, samples_num_per_window: usize) -> Loudness {
         Loudness {
             sample_rate_hz: sample_rate_hz,
             samples_num_per_window: samples_num_per_window,
