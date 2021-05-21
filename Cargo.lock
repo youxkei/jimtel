@@ -954,7 +954,8 @@ dependencies = [
  "iced_baseview",
  "itertools",
  "jimtel",
- "params",
+ "params_derive",
+ "raw-window-handle",
  "vst",
 ]
 
@@ -1213,7 +1214,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "params"
+name = "params_derive"
 version = "0.1.0"
 dependencies = [
  "darling",

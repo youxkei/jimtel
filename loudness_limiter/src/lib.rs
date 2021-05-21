@@ -1,28 +1,80 @@
+mod params;
+mod ui;
+
+use std::os::raw::c_void;
 use std::sync::Arc;
 
+use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
+use iced_baseview::IcedWindow;
+use raw_window_handle::{unix::XcbHandle, HasRawWindowHandle, RawWindowHandle};
 use vst::buffer::AudioBuffer;
+use vst::editor::Editor;
 use vst::plugin::{Category, Info, Plugin, PluginParameters};
-use vst::util::AtomicFloat;
 
-#[derive(params::Params)]
-struct LoudnessLimiterParams {
-    #[param(unit = "dB", min = "-80", max = "80")]
-    input_gain: AtomicFloat,
+use params::LoudnessLimiterParams;
+use ui::{Flags, LoudnessLimiterUI};
 
-    #[param(unit = "dB", min = "-80", max = "80")]
-    output_gain: AtomicFloat,
+struct LoudnessLimiterEditor {
+    handle: Option<iced_baseview::WindowHandle<ui::Message>>,
+    params: Arc<LoudnessLimiterParams>,
+}
 
-    #[param(unit = "LKFS", min = "-80", max = "0")]
-    limit: AtomicFloat,
+struct WindowHandle {
+    handle: *mut c_void,
+}
 
-    #[param(unit = "dBFS", min = "-80", max = "0")]
-    hard_limit: AtomicFloat,
+unsafe impl HasRawWindowHandle for WindowHandle {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        RawWindowHandle::Xcb(XcbHandle {
+            window: self.handle as u32,
+            ..XcbHandle::empty()
+        })
+    }
+}
 
-    #[param(unit = "ms", min = "0", max = "5000")]
-    attack: AtomicFloat,
+impl Editor for LoudnessLimiterEditor {
+    fn size(&self) -> (i32, i32) {
+        (1024, 1024)
+    }
 
-    #[param(unit = "ms", min = "0", max = "5000")]
-    release: AtomicFloat,
+    fn position(&self) -> (i32, i32) {
+        (0, 0)
+    }
+
+    fn open(&mut self, parent: *mut c_void) -> bool {
+        let settings = iced_baseview::Settings {
+            window: WindowOpenOptions {
+                title: "Jimtel Loudness Limiter".to_string(),
+                size: Size::new(1024.0, 1024.0),
+                scale: WindowScalePolicy::SystemScaleFactor,
+            },
+            flags: Flags {
+                params: self.params.clone(),
+            },
+        };
+
+        let handle = IcedWindow::<LoudnessLimiterUI>::open_parented(
+            &WindowHandle { handle: parent },
+            settings,
+        );
+
+        self.handle = Some(handle);
+
+        true
+    }
+
+    fn is_open(&mut self) -> bool {
+        self.handle.is_some()
+    }
+
+    fn close(&mut self) {
+        match self.handle {
+            Some(ref mut handle) => handle.close_window().unwrap(),
+            None => {}
+        };
+
+        self.handle = None;
+    }
 }
 
 struct LoudnessLimiter {
@@ -38,14 +90,7 @@ impl Default for LoudnessLimiter {
 
         Self {
             loudness,
-            params: Arc::new(LoudnessLimiterParams {
-                input_gain: AtomicFloat::new(0.0),
-                output_gain: AtomicFloat::new(0.0),
-                limit: AtomicFloat::new(0.0),
-                hard_limit: AtomicFloat::new(0.0),
-                attack: AtomicFloat::new(1000.0),
-                release: AtomicFloat::new(1000.0),
-            }),
+            params: Arc::new(LoudnessLimiterParams::new()),
         }
     }
 }
@@ -98,6 +143,13 @@ impl Plugin for LoudnessLimiter {
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
         Arc::clone(&self.params) as Arc<dyn PluginParameters>
+    }
+
+    fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
+        Some(Box::new(LoudnessLimiterEditor {
+            handle: None,
+            params: self.params.clone(),
+        }))
     }
 }
 

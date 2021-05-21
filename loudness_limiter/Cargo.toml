@@ -12,4 +12,5 @@ itertools = "0.10.0"
 baseview = { git = "https://github.com/RustAudio/baseview.git", branch="master" }
 iced_baseview = { git = "https://github.com/BillyDM/iced_baseview", branch="main", features=["canvas"] }
 jimtel = { path = ".." }
-params = { path = "../params" }
+params_derive = { path = "../params_derive" }
+raw-window-handle = "0.3.3"

@@ -1,6 +1,6 @@
 use darling::{ast::Data, FromDeriveInput, FromField, FromMeta};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, DeriveInput, Ident};
 
 #[derive(FromMeta)]
@@ -59,6 +59,29 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
     let num_fields = fields.len();
 
+    let get_parameter_text_methods = fields.iter().map(|(_, field)| {
+        let ident = field.ident.as_ref().unwrap();
+        let method = format_ident!("get_{}_text", ident);
+
+        match field.unit {
+            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
+                quote! {
+                    pub fn #method(&self) -> String {
+                        ((1000.0 * (20.0 * self.#ident.get().log10())).round() / 1000.0).to_string()
+                    }
+                }
+            }
+
+            _ => {
+                quote! {
+                    pub fn #method(&self) -> String {
+                        ((1000.0 * self.#ident.get()).round() / 1000.0).to_string()
+                    }
+                }
+            }
+        }
+    });
+
     let get_parameter_label_matches = fields.iter().map(|(i, field)| {
         let unit = match field.unit {
             Unit::None => "",
@@ -73,18 +96,9 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
     let get_parameter_text_matches = fields.iter().map(|(i, field)| {
         let ident = field.ident.as_ref().unwrap();
-        let min = field.min;
-        let width = field.max - field.min;
+        let method = format_ident!("get_{}_text", ident);
 
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
-                quote! { #i => ((100.0 * (20.0 * self.#ident.get().log10())).round() / 100.0).to_string() }
-            }
-
-            _ => {
-                quote! { #i => ((100.0 * self.#ident.get()).round() / 100.0).to_string() }
-            }
-        }
+        quote! { #i => self.#method() }
     });
 
     let get_parameter_name_matches = fields.iter().map(|(i, field)| {
@@ -126,7 +140,9 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
     (quote! {
         impl #ident {
-            fn num_params() -> usize { #num_fields }
+            pub fn num_params() -> usize { #num_fields }
+
+            #(#get_parameter_text_methods)*
         }
 
         impl vst::plugin::PluginParameters for #ident {
