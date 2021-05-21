@@ -140,7 +140,7 @@ impl Plugin for LoudnessLimiter {
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
-        Arc::clone(&self.params) as Arc<dyn PluginParameters>
+        self.params.clone()
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
