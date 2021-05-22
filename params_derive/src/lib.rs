@@ -1,6 +1,6 @@
 use darling::{ast::Data, FromDeriveInput, FromField, FromMeta};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Ident};
 
 #[derive(FromMeta)]
@@ -59,30 +59,12 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
     let num_fields = fields.len();
 
-    let get_parameter_text_methods = fields.iter().map(|(_, field)| {
-        let ident = field.ident.as_ref().unwrap();
-        let method = format_ident!("get_{}_text", ident);
-
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
-                quote! {
-                    pub fn #method(&self) -> String {
-                        ((1000.0 * (20.0 * self.#ident.get().log10())).round() / 1000.0).to_string()
-                    }
-                }
-            }
-
-            _ => {
-                quote! {
-                    pub fn #method(&self) -> String {
-                        ((1000.0 * self.#ident.get()).round() / 1000.0).to_string()
-                    }
-                }
-            }
-        }
+    let get_name_matches = fields.iter().map(|(i, field)| {
+        let name = format!("{}", field.ident.as_ref().unwrap());
+        quote! { #i => #name.to_string() }
     });
 
-    let get_parameter_label_matches = fields.iter().map(|(i, field)| {
+    let get_unit_matches = fields.iter().map(|(i, field)| {
         let unit = match field.unit {
             Unit::None => "",
             Unit::Ms => "ms",
@@ -94,90 +76,153 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
         quote! { #i => #unit.to_string() }
     });
 
-    let get_parameter_text_matches = fields.iter().map(|(i, field)| {
-        let ident = field.ident.as_ref().unwrap();
-        let method = format_ident!("get_{}_text", ident);
-
-        quote! { #i => self.#method() }
+    let get_range_matches = fields.iter().map(|(i, field)| {
+        let Field { min, max, .. } = field;
+        quote! { #i => #min..=#max }
     });
 
-    let get_parameter_name_matches = fields.iter().map(|(i, field)| {
-        let field_name = format!("{}", field.ident.as_ref().unwrap());
-        quote! {#i => #field_name.to_string()}
+    let get_value_matches = fields.iter().map(|(i, field)| {
+        let ident = field.ident.as_ref().unwrap();
+
+        match field.unit {
+            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
+                quote! { #i => 20.0 * self.#ident.get().log10() }
+            }
+
+            _ => {
+                quote! { #i => self.#ident.get() }
+            }
+        }
+    });
+
+    let get_value_text_matches = fields.iter().map(|(i, _field)| {
+        quote! { #i => ((10.0 * self.get_value(#i)).round() / 10.0).to_string() }
+    });
+
+    let set_value_matches = fields.iter().map(|(i, field)| {
+        let ident = field.ident.as_ref().unwrap();
+
+        match field.unit {
+            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
+                quote! { #i => self.#ident.set(10f32.powf((value) * 0.05)) }
+            }
+
+            _ => {
+                quote! { #i => self.#ident.set(value) }
+            }
+        }
+    });
+
+    let get_parameter_label_matches = fields.iter().map(|(i, _field)| {
+        quote! { #i => self.get_unit(#i) }
+    });
+
+    let get_parameter_text_matches = fields.iter().map(|(i, _field)| {
+        quote! { #i => self.get_value_text(#i) }
+    });
+
+    let get_parameter_name_matches = fields.iter().map(|(i, _field)| {
+        quote! { #i => self.get_name(#i) }
     });
 
     let get_paramater_matches = fields.iter().map(|(i, field)| {
-        let ident = field.ident.as_ref().unwrap();
         let min = field.min;
         let width = field.max - field.min;
 
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
-                quote! { #i => (20.0 * self.#ident.get().log10() - #min) / #width }
-            }
-
-            _ => {
-                quote! { #i => (self.#ident.get() - #min) / #width }
-            }
-        }
+        quote! { #i => (self.get_value(#i) - #min) / #width }
     });
 
     let set_paramater_matches = fields.iter().map(|(i, field)| {
-        let ident = field.ident.as_ref().unwrap();
         let min = field.min;
         let width = field.max - field.min;
 
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
-                quote! { #i => self.#ident.set(10f32.powf((#min + #width * value) * 0.05)) }
-            }
-
-            _ => {
-                quote! { #i => self.#ident.set(#min + #width * value) }
-            }
-        }
+        quote! { #i => self.set_value(#i, #min + #width * value)}
     });
 
     (quote! {
         impl #ident {
             pub fn num_params() -> usize { #num_fields }
 
-            #(#get_parameter_text_methods)*
+            pub fn index_range() -> std::ops::Range<i32> {
+                0i32..(#num_fields as i32)
+            }
+
+            pub fn get_name(&self, index: i32) -> String {
+                match index {
+                    #(#get_name_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn get_unit(&self, index: i32) -> String {
+                match index {
+                    #(#get_unit_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn get_range(&self, index: i32) -> std::ops::RangeInclusive<f32> {
+                match index {
+                    #(#get_range_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn get_value(&self, index: i32) -> f32 {
+                match index {
+                    #(#get_value_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn get_value_text(&self, index: i32) -> String {
+                match index {
+                    #(#get_value_text_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn set_value(&self, index: i32, value: f32) {
+                match index {
+                    #(#set_value_matches),*,
+                    _ => panic!(),
+                }
+            }
         }
 
         impl vst::plugin::PluginParameters for #ident {
             fn get_parameter_label(&self, index: i32) -> String {
                 match index {
                     #(#get_parameter_label_matches),*,
-                    _ => "".to_string(),
+                    _ => panic!(),
                 }
             }
 
             fn get_parameter_text(&self, index: i32) -> String {
                 match index {
                     #(#get_parameter_text_matches),*,
-                    _ => "".to_string(),
+                    _ => panic!(),
                 }
             }
 
             fn get_parameter_name(&self, index: i32) -> String {
                 match index {
                     #(#get_parameter_name_matches),*,
-                    _ => "".to_string(),
+                    _ => panic!(),
                 }
             }
 
             fn get_parameter(&self, index: i32) -> f32 {
                 match index {
                     #(#get_paramater_matches),*,
-                    _ => 0.0,
+                    _ => panic!(),
                 }
             }
 
             fn set_parameter(&self, index: i32, value: f32) {
                 match index {
                     #(#set_paramater_matches),*,
-                    _ => ()
+                    _ => panic!()
                 }
             }
         }

@@ -34,7 +34,7 @@ unsafe impl HasRawWindowHandle for WindowHandle {
 
 impl Editor for LoudnessLimiterEditor {
     fn size(&self) -> (i32, i32) {
-        (1024, 1024)
+        (1024, 512)
     }
 
     fn position(&self) -> (i32, i32) {
@@ -45,8 +45,8 @@ impl Editor for LoudnessLimiterEditor {
         let settings = iced_baseview::Settings {
             window: WindowOpenOptions {
                 title: "Jimtel Loudness Limiter".to_string(),
-                size: Size::new(1024.0, 1024.0),
-                scale: WindowScalePolicy::SystemScaleFactor,
+                size: Size::new(1024.0, 512.0),
+                scale: WindowScalePolicy::ScaleFactor(1.0),
             },
             flags: Flags {
                 params: self.params.clone(),
@@ -86,10 +86,9 @@ struct LoudnessLimiter {
 impl Default for LoudnessLimiter {
     fn default() -> Self {
         let sample_rate_hz = 48000.0;
-        let loudness = jimtel::loudness::Loudness::new(sample_rate_hz, 1);
 
         Self {
-            loudness,
+            loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1),
             params: Arc::new(LoudnessLimiterParams::new()),
         }
     }
