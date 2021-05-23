@@ -947,19 +947,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jimtel_loudness_limiter"
-version = "0.1.0"
-dependencies = [
- "baseview",
- "iced_baseview",
- "itertools",
- "jimtel",
- "params_derive",
- "raw-window-handle",
- "vst",
-]
-
-[[package]]
 name = "jobserver"
 version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1040,6 +1027,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "loudness_limiter"
+version = "0.1.0"
+dependencies = [
+ "baseview",
+ "iced_baseview",
+ "itertools",
+ "jimtel",
+ "params_derive",
+ "raw-window-handle",
+ "vst",
 ]
 
 [[package]]
