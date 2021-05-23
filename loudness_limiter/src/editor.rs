@@ -7,7 +7,7 @@ use iced_baseview::{
     executor, slider, text_input, Application, Color, Column, Command, Element, Length, Row,
     Slider, Text, TextInput,
 };
-use raw_window_handle::{unix::XcbHandle, HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use vst::editor::Editor;
 
 use crate::params::LoudnessLimiterParams;
@@ -177,10 +177,39 @@ impl LoudnessLimiterEditor {
 struct WindowHandle(*mut c_void);
 
 unsafe impl HasRawWindowHandle for WindowHandle {
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
     fn raw_window_handle(&self) -> RawWindowHandle {
+        use raw_window_handle::unix::XcbHandle;
+
         RawWindowHandle::Xcb(XcbHandle {
             window: self.0 as u32,
             ..XcbHandle::empty()
+        })
+    }
+
+    #[cfg(target_os = "windows")]
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        use raw_window_handle::windows::WindowsHandle;
+
+        RawWindowHandle::Windows(WindowsHandle {
+            hwnd: self.0,
+            ..WindowsHandle::empty()
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        use raw_window_handle::macos::MacOSHandle;
+
+        RawWindowHandle::MacOS(MacOSHandle {
+            ns_view: self.0,
+            ..MacOSHandle::empty()
         })
     }
 }
