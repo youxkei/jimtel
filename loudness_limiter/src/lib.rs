@@ -1,85 +1,17 @@
+mod editor;
 mod params;
-mod ui;
 
-use std::os::raw::c_void;
 use std::sync::Arc;
 
-use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
-use iced_baseview::IcedWindow;
-use raw_window_handle::{unix::XcbHandle, HasRawWindowHandle, RawWindowHandle};
 use vst::buffer::AudioBuffer;
 use vst::editor::Editor;
 use vst::plugin::{Category, Info, Plugin, PluginParameters};
 
+use editor::LoudnessLimiterEditor;
 use params::LoudnessLimiterParams;
-use ui::{Flags, LoudnessLimiterUI};
-
-struct LoudnessLimiterEditor {
-    handle: Option<iced_baseview::WindowHandle<ui::Message>>,
-    params: Arc<LoudnessLimiterParams>,
-}
-
-struct WindowHandle {
-    handle: *mut c_void,
-}
-
-unsafe impl HasRawWindowHandle for WindowHandle {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        RawWindowHandle::Xcb(XcbHandle {
-            window: self.handle as u32,
-            ..XcbHandle::empty()
-        })
-    }
-}
-
-impl Editor for LoudnessLimiterEditor {
-    fn size(&self) -> (i32, i32) {
-        (1024, 512)
-    }
-
-    fn position(&self) -> (i32, i32) {
-        (0, 0)
-    }
-
-    fn open(&mut self, parent: *mut c_void) -> bool {
-        let settings = iced_baseview::Settings {
-            window: WindowOpenOptions {
-                title: "Jimtel Loudness Limiter".to_string(),
-                size: Size::new(1024.0, 512.0),
-                scale: WindowScalePolicy::ScaleFactor(1.0),
-            },
-            flags: Flags {
-                params: self.params.clone(),
-            },
-        };
-
-        let handle = IcedWindow::<LoudnessLimiterUI>::open_parented(
-            &WindowHandle { handle: parent },
-            settings,
-        );
-
-        self.handle = Some(handle);
-
-        true
-    }
-
-    fn is_open(&mut self) -> bool {
-        self.handle.is_some()
-    }
-
-    fn close(&mut self) {
-        match self.handle {
-            Some(ref mut handle) => handle.close_window().unwrap(),
-            None => {}
-        };
-
-        self.handle = None;
-    }
-}
 
 struct LoudnessLimiter {
     loudness: jimtel::loudness::Loudness,
-
     params: Arc<LoudnessLimiterParams>,
 }
 
@@ -143,10 +75,7 @@ impl Plugin for LoudnessLimiter {
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        Some(Box::new(LoudnessLimiterEditor {
-            handle: None,
-            params: self.params.clone(),
-        }))
+        Some(Box::new(LoudnessLimiterEditor::new(self.params.clone())))
     }
 }
 

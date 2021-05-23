@@ -1,11 +1,14 @@
+use std::os::raw::c_void;
 use std::sync::Arc;
 
-use vst::util::AtomicFloat;
-
+use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
+use iced_baseview::IcedWindow;
 use iced_baseview::{
     executor, slider, text_input, Application, Color, Column, Command, Element, Length, Row,
     Slider, Text, TextInput,
 };
+use raw_window_handle::{unix::XcbHandle, HasRawWindowHandle, RawWindowHandle};
+use vst::editor::Editor;
 
 use crate::params::LoudnessLimiterParams;
 
@@ -91,7 +94,6 @@ impl ParamUI {
 
 pub struct LoudnessLimiterUI {
     params: Arc<LoudnessLimiterParams>,
-
     param_uis: Vec<ParamUI>,
 }
 
@@ -148,10 +150,80 @@ impl Application for LoudnessLimiterUI {
             column = column.push(param_ui.view())
         }
 
-        column.into()
+        let element: Element<Message> = column.into();
+
+        element
     }
 
     fn background_color(&self) -> Color {
         Color::WHITE
+    }
+}
+
+pub struct LoudnessLimiterEditor {
+    handle: Option<iced_baseview::WindowHandle<Message>>,
+    params: Arc<LoudnessLimiterParams>,
+}
+
+impl LoudnessLimiterEditor {
+    pub fn new(params: Arc<LoudnessLimiterParams>) -> Self {
+        Self {
+            handle: None,
+            params,
+        }
+    }
+}
+
+struct WindowHandle(*mut c_void);
+
+unsafe impl HasRawWindowHandle for WindowHandle {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        RawWindowHandle::Xcb(XcbHandle {
+            window: self.0 as u32,
+            ..XcbHandle::empty()
+        })
+    }
+}
+
+impl Editor for LoudnessLimiterEditor {
+    fn size(&self) -> (i32, i32) {
+        (1024, 512)
+    }
+
+    fn position(&self) -> (i32, i32) {
+        (0, 0)
+    }
+
+    fn open(&mut self, parent: *mut c_void) -> bool {
+        let settings = iced_baseview::Settings {
+            window: WindowOpenOptions {
+                title: "Jimtel Loudness Limiter".to_string(),
+                size: Size::new(1024.0, 512.0),
+                scale: WindowScalePolicy::ScaleFactor(1.0),
+            },
+            flags: Flags {
+                params: self.params.clone(),
+            },
+        };
+
+        let handle =
+            IcedWindow::<LoudnessLimiterUI>::open_parented(&WindowHandle(parent), settings);
+
+        self.handle = Some(handle);
+
+        true
+    }
+
+    fn is_open(&mut self) -> bool {
+        self.handle.is_some()
+    }
+
+    fn close(&mut self) {
+        match self.handle {
+            Some(ref mut handle) => handle.close_window().unwrap(),
+            None => {}
+        };
+
+        self.handle = None;
     }
 }
