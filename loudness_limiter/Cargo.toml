@@ -14,3 +14,4 @@ iced_baseview = { git = "https://github.com/BillyDM/iced_baseview", branch="main
 jimtel = { path = ".." }
 params_derive = { path = "../params_derive" }
 raw-window-handle = "0.3.3"
+rmp-serde = "0.15.4"

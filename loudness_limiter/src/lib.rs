@@ -35,6 +35,7 @@ impl Plugin for LoudnessLimiter {
             outputs: 2,
             parameters: LoudnessLimiterParams::num_params() as i32,
             category: Category::Mastering,
+            preset_chunks: false,
 
             ..Default::default()
         }

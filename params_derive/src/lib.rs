@@ -225,6 +225,35 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
                     _ => panic!()
                 }
             }
+
+            fn string_to_parameter(&self, index: i32, text: String) -> bool {
+                match text.parse::<f32>() {
+                    Ok(value) => {
+                        self.set_value(index, value);
+                        true
+                    }
+
+                    Err(_) => false
+                }
+            }
+
+            fn get_preset_data(&self) -> Vec<u8> {
+                let mut vec = vec![0f32; Self::num_params()];
+
+                for index in Self::index_range() {
+                    vec[index as usize] = self.get_value(index);
+                }
+
+                rmp_serde::to_vec(&vec).unwrap()
+            }
+
+            fn load_preset_data(&self, data: &[u8]) {
+                let vec: Vec<f32> = rmp_serde::from_read_ref(data).unwrap();
+
+                for index in Self::index_range() {
+                    self.set_value(index, vec[index as usize]);
+                }
+            }
         }
     })
     .into()
