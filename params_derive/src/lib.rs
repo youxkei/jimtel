@@ -237,21 +237,21 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn get_preset_data(&self) -> Vec<u8> {
-                let mut vec = vec![0f32; Self::num_params()];
+            fn get_bank_data(&self) -> Vec<u8> {
+                let mut vec = vec![];
 
                 for index in Self::index_range() {
-                    vec[index as usize] = self.get_value(index);
+                    vec.push(self.get_value(index));
                 }
 
                 rmp_serde::to_vec(&vec).unwrap()
             }
 
-            fn load_preset_data(&self, data: &[u8]) {
+            fn load_bank_data(&self, data: &[u8]) {
                 let vec: Vec<f32> = rmp_serde::from_read_ref(data).unwrap();
 
-                for index in Self::index_range() {
-                    self.set_value(index, vec[index as usize]);
+                for (index, value) in Self::index_range().zip(vec.into_iter()) {
+                    self.set_value(index, value);
                 }
             }
         }
