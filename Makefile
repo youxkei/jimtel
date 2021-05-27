@@ -1,14 +1,6 @@
 SOURCES := $(shell find . -name "*.rs")
 PLUGINS := loudness_limiter
 
-target/release/libjimtel_loudness_limiter.so: ${SOURCES}
-	cargo build --release --workspace
-
-.PHONY: install
-install: target/release/libjimtel_loudness_limiter.so
-	mkdir -p ~/.vst
-	cp target/release/libjimtel_loudness_limiter.so ~/.vst
-
 jimtel_linux.tar.gz:
 	cargo build --release --workspace
 	mkdir -p jimtel_linux

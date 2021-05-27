@@ -13,6 +13,9 @@ use params::LoudnessLimiterParams;
 struct LoudnessLimiter {
     loudness: jimtel::loudness::Loudness,
     params: Arc<LoudnessLimiterParams>,
+
+    envelope: jimtel::envelope::Envelope,
+    coefficient: f32,
 }
 
 impl Default for LoudnessLimiter {
@@ -20,8 +23,11 @@ impl Default for LoudnessLimiter {
         let sample_rate_hz = 48000.0;
 
         Self {
-            loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1),
+            loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1, 1),
             params: Arc::new(LoudnessLimiterParams::new()),
+
+            envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
+            coefficient: 1.0,
         }
     }
 }
@@ -53,7 +59,7 @@ impl Plugin for LoudnessLimiter {
         let hard_limit = self.params.hard_limit.get();
         let release_ms = self.params.release.get();
 
-        self.loudness.set_params(limit, hard_limit, 0.0, release_ms);
+        self.envelope.set_coefficients(0.0, release_ms);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
@@ -61,13 +67,21 @@ impl Plugin for LoudnessLimiter {
             out_left_buffer.get_mut(0),
             out_right_buffer.get_mut(0),
         ) {
-            let left_sample = in_left * input_gain;
-            let right_sample = in_right * input_gain;
+            let loudness = self
+                .loudness
+                .add_samples(in_left * input_gain, in_right * input_gain);
+            let loudness = self.envelope.calculate(loudness);
 
-            let (left_sample, right_sample) = self.loudness.add_samples(left_sample, right_sample);
+            if loudness > limit {
+                self.coefficient = limit / loudness;
+            } else {
+                self.coefficient = 1.0;
+            }
 
-            *out_left = left_sample * output_gain;
-            *out_right = right_sample * output_gain;
+            let gain = input_gain * output_gain * self.coefficient;
+
+            *out_left = (in_left * gain).min(hard_limit).max(-hard_limit);
+            *out_right = (in_right * gain).min(hard_limit).max(-hard_limit);
         }
     }
 
