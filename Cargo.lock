@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "jimtel"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "vst",
 ]
@@ -374,7 +374,7 @@ dependencies = [
 
 [[package]]
 name = "loudness_limiter"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "baseview",
  "egui",
@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "params_derive"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "darling",
  "quote",
