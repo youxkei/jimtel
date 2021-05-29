@@ -1,5 +1,5 @@
 SOURCES := $(shell find . -name "*.rs")
-PLUGINS := loudness_limiter
+PLUGINS := loudness_limiter loudness_ceiling
 
 jimtel_linux.tar.gz:
 	cargo build --release --workspace

@@ -13,6 +13,7 @@ enum Unit {
     Dbfs,
     #[darling(rename = "LKFS")]
     Lkfs,
+    Button,
 }
 
 impl Default for Unit {
@@ -71,6 +72,7 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             Unit::Db => "dB",
             Unit::Dbfs => "dBFS",
             Unit::Lkfs => "LKFS",
+            Unit::Button => "",
         };
 
         quote! { #i => #unit.to_string() }

@@ -374,6 +374,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "loudness_ceiling"
+version = "0.5.0"
+dependencies = [
+ "baseview",
+ "egui",
+ "egui-baseview",
+ "epaint",
+ "itertools",
+ "jimtel",
+ "params_derive",
+ "rmp-serde",
+ "vst",
+]
+
+[[package]]
 name = "loudness_limiter"
 version = "0.5.0"
 dependencies = [
