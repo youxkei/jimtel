@@ -5,50 +5,11 @@ use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
 use egui::{CentralPanel, CtxRef, Grid, Style};
 use egui_baseview::{EguiWindow, Queue, RenderSettings, Settings};
 use epaint::text::{FontDefinitions, FontFamily, TextStyle};
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use vst::editor::Editor;
 
 use crate::params::LoudnessLimiterParams;
 
-struct ParentWindowHandle(*mut c_void);
-
-unsafe impl HasRawWindowHandle for ParentWindowHandle {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd"
-    ))]
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        use raw_window_handle::unix::XcbHandle;
-
-        RawWindowHandle::Xcb(XcbHandle {
-            window: self.0 as u32,
-            ..XcbHandle::empty()
-        })
-    }
-
-    #[cfg(target_os = "windows")]
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        use raw_window_handle::windows::WindowsHandle;
-
-        RawWindowHandle::Windows(WindowsHandle {
-            hwnd: self.0,
-            ..WindowsHandle::empty()
-        })
-    }
-
-    #[cfg(target_os = "macos")]
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        use raw_window_handle::macos::MacOSHandle;
-
-        RawWindowHandle::MacOS(MacOSHandle {
-            ns_view: self.0,
-            ..MacOSHandle::empty()
-        })
-    }
-}
+use jimtel::window_handle::WindowHandle;
 
 struct State {
     params: Arc<LoudnessLimiterParams>,
@@ -98,7 +59,7 @@ impl Editor for LoudnessLimiterEditor {
         };
 
         EguiWindow::open_parented(
-            &ParentWindowHandle(parent),
+            &WindowHandle(parent),
             settings,
             State::new(self.params.clone()),
             |egui_ctx: &CtxRef, _queue: &mut Queue, _state: &mut State| {
