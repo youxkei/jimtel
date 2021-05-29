@@ -4,6 +4,7 @@ use std::sync::Arc;
 use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
 use egui::{CentralPanel, CtxRef, Grid, Style};
 use egui_baseview::{EguiWindow, Queue, RenderSettings, Settings};
+use epaint::text::{FontDefinitions, FontFamily, TextStyle};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use vst::editor::Editor;
 
@@ -49,6 +50,16 @@ unsafe impl HasRawWindowHandle for ParentWindowHandle {
     }
 }
 
+struct State {
+    params: Arc<LoudnessLimiterParams>,
+}
+
+impl State {
+    fn new(params: Arc<LoudnessLimiterParams>) -> Self {
+        State { params }
+    }
+}
+
 pub struct LoudnessLimiterEditor {
     opened: bool,
     params: Arc<LoudnessLimiterParams>,
@@ -63,19 +74,9 @@ impl LoudnessLimiterEditor {
     }
 }
 
-struct State {
-    params: Arc<LoudnessLimiterParams>,
-}
-
-impl State {
-    fn new(params: Arc<LoudnessLimiterParams>) -> Self {
-        State { params }
-    }
-}
-
 impl Editor for LoudnessLimiterEditor {
     fn size(&self) -> (i32, i32) {
-        (1024, 512)
+        (1024, 360)
     }
 
     fn position(&self) -> (i32, i32) {
@@ -90,8 +91,8 @@ impl Editor for LoudnessLimiterEditor {
         let settings = Settings {
             window: WindowOpenOptions {
                 title: "Jimtel Loudness Limiter".to_string(),
-                size: Size::new(1024.0, 512.0),
-                scale: WindowScalePolicy::ScaleFactor(2.0),
+                size: Size::new(1024.0, 360.0),
+                scale: WindowScalePolicy::ScaleFactor(1.0),
             },
             render_settings: RenderSettings::default(),
         };
@@ -101,13 +102,26 @@ impl Editor for LoudnessLimiterEditor {
             settings,
             State::new(self.params.clone()),
             |egui_ctx: &CtxRef, _queue: &mut Queue, _state: &mut State| {
+                let mut fonts = FontDefinitions::default();
+                fonts
+                    .family_and_size
+                    .insert(TextStyle::Body, (FontFamily::Proportional, 28.0));
+                fonts
+                    .family_and_size
+                    .insert(TextStyle::Button, (FontFamily::Proportional, 28.0));
+                fonts
+                    .family_and_size
+                    .insert(TextStyle::Monospace, (FontFamily::Monospace, 28.0));
+                egui_ctx.set_fonts(fonts);
+
                 let mut style: Style = (*egui_ctx.style()).clone();
-                style.spacing.slider_width *= 3.0;
+                style.spacing.slider_width = 700.0;
+                style.spacing.item_spacing.y = 16.0;
                 egui_ctx.set_style(style);
             },
             |egui_ctx: &CtxRef, _queue: &mut Queue, state: &mut State| {
                 CentralPanel::default().show(&egui_ctx, |ui| {
-                    Grid::new("root grid").striped(true).show(ui, |ui| {
+                    Grid::new("root grid").show(ui, |ui| {
                         for index in LoudnessLimiterParams::index_range() {
                             let mut value = state.params.get_value(index);
 
