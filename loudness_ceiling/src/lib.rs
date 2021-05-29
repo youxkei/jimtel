@@ -30,7 +30,7 @@ impl Default for LoudnessCeiling {
             loudness: jimtel::loudness::Loudness::new(
                 sample_rate_hz,
                 samples_num_per_window,
-                samples_num_per_window,
+                samples_num_per_calculation,
             ),
             params: Arc::new(LoudnessCeilingParams::new()),
 

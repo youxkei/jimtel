@@ -78,6 +78,15 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
         quote! { #i => #unit.to_string() }
     });
 
+    let is_button_matches = fields.iter().map(|(i, field)| {
+        let is_button = match field.unit {
+            Unit::Button => true,
+            _ => false,
+        };
+
+        quote! { #i => #is_button }
+    });
+
     let get_range_matches = fields.iter().map(|(i, field)| {
         let Field { min, max, .. } = field;
         quote! { #i => #min..=#max }
@@ -159,6 +168,13 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             pub fn get_unit(&self, index: i32) -> String {
                 match index {
                     #(#get_unit_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            pub fn is_button(&self, index: i32) -> bool {
+                match index {
+                    #(#is_button_matches),*,
                     _ => panic!(),
                 }
             }

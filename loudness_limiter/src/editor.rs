@@ -7,9 +7,9 @@ use egui_baseview::{EguiWindow, Queue, RenderSettings, Settings};
 use epaint::text::{FontDefinitions, FontFamily, TextStyle};
 use vst::editor::Editor;
 
-use crate::params::LoudnessLimiterParams;
-
 use jimtel::window_handle::WindowHandle;
+
+use crate::params::LoudnessLimiterParams;
 
 struct State {
     params: Arc<LoudnessLimiterParams>,
