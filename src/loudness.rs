@@ -27,7 +27,7 @@ impl Loudness {
             left_prefilter: Prefilter::new(sample_rate_hz),
             right_prefilter: Prefilter::new(sample_rate_hz),
 
-            sample_buffer: vec![0.0; samples_num_per_window * 2],
+            sample_buffer: vec![0.0; samples_num_per_window],
             current_sample: 0,
             count: 0,
 
