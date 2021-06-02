@@ -1,13 +1,13 @@
-mod editor;
 mod params;
 
 use std::sync::Arc;
 
 use vst::buffer::AudioBuffer;
-use vst::editor::Editor;
+use vst::editor::Editor as VstEditor;
 use vst::plugin::{Category, Info, Plugin, PluginParameters};
 
-use editor::LoudnessLimiterEditor;
+use jimtel::editor::Editor;
+use jimtel::params::Params;
 use params::LoudnessLimiterParams;
 
 struct LoudnessLimiter {
@@ -89,8 +89,13 @@ impl Plugin for LoudnessLimiter {
         self.params.clone()
     }
 
-    fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        Some(Box::new(LoudnessLimiterEditor::new(self.params.clone())))
+    fn get_editor(&mut self) -> Option<Box<dyn VstEditor>> {
+        Some(Box::new(Editor::new(
+            "Jimtel Loudness Limiter".to_string(),
+            1024.0,
+            360.0,
+            self.params.clone(),
+        )))
     }
 }
 

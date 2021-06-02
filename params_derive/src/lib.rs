@@ -151,56 +151,56 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
     });
 
     (quote! {
-        impl #ident {
-            pub fn num_params() -> usize { #num_fields }
+        impl jimtel::params::Params for #ident {
+            fn num_params() -> usize { #num_fields }
 
-            pub fn index_range() -> std::ops::Range<i32> {
+            fn index_range() -> std::ops::Range<i32> {
                 0i32..(#num_fields as i32)
             }
 
-            pub fn get_name(&self, index: i32) -> String {
+            fn get_name(&self, index: i32) -> String {
                 match index {
                     #(#get_name_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn get_unit(&self, index: i32) -> String {
+            fn get_unit(&self, index: i32) -> String {
                 match index {
                     #(#get_unit_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn is_button(&self, index: i32) -> bool {
+            fn is_button(&self, index: i32) -> bool {
                 match index {
                     #(#is_button_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn get_range(&self, index: i32) -> std::ops::RangeInclusive<f32> {
+            fn get_range(&self, index: i32) -> std::ops::RangeInclusive<f32> {
                 match index {
                     #(#get_range_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn get_value(&self, index: i32) -> f32 {
+            fn get_value(&self, index: i32) -> f32 {
                 match index {
                     #(#get_value_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn get_value_text(&self, index: i32) -> String {
+            fn get_value_text(&self, index: i32) -> String {
                 match index {
                     #(#get_value_text_matches),*,
                     _ => panic!(),
                 }
             }
 
-            pub fn set_value(&self, index: i32, value: f32) {
+            fn set_value(&self, index: i32, value: f32) {
                 match index {
                     #(#set_value_matches),*,
                     _ => panic!(),
@@ -210,6 +210,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
         impl vst::plugin::PluginParameters for #ident {
             fn get_parameter_label(&self, index: i32) -> String {
+                use jimtel::params::Params;
+
                 match index {
                     #(#get_parameter_label_matches),*,
                     _ => panic!(),
@@ -217,6 +219,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn get_parameter_text(&self, index: i32) -> String {
+                use jimtel::params::Params;
+
                 match index {
                     #(#get_parameter_text_matches),*,
                     _ => panic!(),
@@ -224,6 +228,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn get_parameter_name(&self, index: i32) -> String {
+                use jimtel::params::Params;
+
                 match index {
                     #(#get_parameter_name_matches),*,
                     _ => panic!(),
@@ -231,6 +237,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn get_parameter(&self, index: i32) -> f32 {
+                use jimtel::params::Params;
+
                 match index {
                     #(#get_paramater_matches),*,
                     _ => panic!(),
@@ -238,6 +246,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn set_parameter(&self, index: i32, value: f32) {
+                use jimtel::params::Params;
+
                 match index {
                     #(#set_paramater_matches),*,
                     _ => panic!()
@@ -245,6 +255,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn string_to_parameter(&self, index: i32, text: String) -> bool {
+                use jimtel::params::Params;
+
                 match text.parse::<f32>() {
                     Ok(value) => {
                         self.set_value(index, value);
@@ -256,6 +268,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn get_bank_data(&self) -> Vec<u8> {
+                use jimtel::params::Params;
+
                 let mut vec = vec![];
 
                 for index in Self::index_range() {
@@ -266,6 +280,8 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             }
 
             fn load_bank_data(&self, data: &[u8]) {
+                use jimtel::params::Params;
+
                 let vec: Vec<f32> = rmp_serde::from_read_ref(data).unwrap();
 
                 for (index, value) in Self::index_range().zip(vec.into_iter()) {

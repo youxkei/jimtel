@@ -320,6 +320,10 @@ dependencies = [
 name = "jimtel"
 version = "0.6.0"
 dependencies = [
+ "baseview",
+ "egui",
+ "egui-baseview",
+ "epaint",
  "raw-window-handle",
  "vst",
 ]
@@ -377,10 +381,6 @@ dependencies = [
 name = "loudness_ceiling"
 version = "0.6.0"
 dependencies = [
- "baseview",
- "egui",
- "egui-baseview",
- "epaint",
  "itertools",
  "jimtel",
  "params_derive",
@@ -392,10 +392,6 @@ dependencies = [
 name = "loudness_limiter"
 version = "0.6.0"
 dependencies = [
- "baseview",
- "egui",
- "egui-baseview",
- "epaint",
  "itertools",
  "jimtel",
  "params_derive",

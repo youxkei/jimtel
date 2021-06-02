@@ -1,3 +1,4 @@
+use std::marker::{Send, Sync};
 use std::os::raw::c_void;
 use std::sync::Arc;
 
@@ -5,37 +6,43 @@ use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
 use egui::{CentralPanel, CtxRef, Grid, Style};
 use egui_baseview::{EguiWindow, Queue, RenderSettings, Settings};
 use epaint::text::{FontDefinitions, FontFamily, TextStyle};
-use vst::editor::Editor;
+use vst::editor::Editor as VstEditor;
 
-use jimtel::window_handle::WindowHandle;
+use crate::params::Params as VstParams;
+use crate::window_handle::WindowHandle;
 
-use crate::params::LoudnessLimiterParams;
-
-struct State {
-    params: Arc<LoudnessLimiterParams>,
+struct State<Params> {
+    params: Arc<Params>,
 }
 
-impl State {
-    fn new(params: Arc<LoudnessLimiterParams>) -> Self {
+impl<Params> State<Params> {
+    fn new(params: Arc<Params>) -> Self {
         State { params }
     }
 }
 
-pub struct LoudnessLimiterEditor {
+pub struct Editor<Params> {
+    title: String,
+    width: f64,
+    height: f64,
+
     opened: bool,
-    params: Arc<LoudnessLimiterParams>,
+    params: Arc<Params>,
 }
 
-impl LoudnessLimiterEditor {
-    pub fn new(params: Arc<LoudnessLimiterParams>) -> Self {
+impl<Params> Editor<Params> {
+    pub fn new(title: String, width: f64, height: f64, params: Arc<Params>) -> Self {
         Self {
+            title,
+            width,
+            height,
             params,
             opened: false,
         }
     }
 }
 
-impl Editor for LoudnessLimiterEditor {
+impl<Params: 'static + VstParams + Send + Sync> VstEditor for Editor<Params> {
     fn size(&self) -> (i32, i32) {
         (1024, 360)
     }
@@ -51,8 +58,8 @@ impl Editor for LoudnessLimiterEditor {
 
         let settings = Settings {
             window: WindowOpenOptions {
-                title: "Jimtel Loudness Limiter".to_string(),
-                size: Size::new(1024.0, 360.0),
+                title: self.title.clone(),
+                size: Size::new(self.width, self.height),
                 scale: WindowScalePolicy::ScaleFactor(1.0),
             },
             render_settings: RenderSettings::default(),
@@ -62,7 +69,7 @@ impl Editor for LoudnessLimiterEditor {
             &WindowHandle(parent),
             settings,
             State::new(self.params.clone()),
-            |egui_ctx: &CtxRef, _queue: &mut Queue, _state: &mut State| {
+            |egui_ctx: &CtxRef, _queue: &mut Queue, _state: &mut State<Params>| {
                 let mut fonts = FontDefinitions::default();
                 fonts
                     .family_and_size
@@ -80,23 +87,36 @@ impl Editor for LoudnessLimiterEditor {
                 style.spacing.item_spacing.y = 16.0;
                 egui_ctx.set_style(style);
             },
-            |egui_ctx: &CtxRef, _queue: &mut Queue, state: &mut State| {
+            |egui_ctx: &CtxRef, _queue: &mut Queue, state: &mut State<Params>| {
                 CentralPanel::default().show(&egui_ctx, |ui| {
                     Grid::new("root grid").show(ui, |ui| {
-                        for index in LoudnessLimiterParams::index_range() {
+                        for index in Params::index_range() {
                             let mut value = state.params.get_value(index);
 
-                            ui.label(state.params.get_name(index));
+                            if state.params.is_button(index) {
+                                if ui.button(state.params.get_name(index)).clicked() {
+                                    if value < 0.5 {
+                                        state.params.set_value(index, 1.0)
+                                    } else {
+                                        state.params.set_value(index, 0.0)
+                                    }
+                                }
+                            } else {
+                                ui.label(state.params.get_name(index));
 
-                            if ui
-                                .add(
-                                    egui::Slider::new(&mut value, state.params.get_range(index))
+                                if ui
+                                    .add(
+                                        egui::Slider::new(
+                                            &mut value,
+                                            state.params.get_range(index),
+                                        )
                                         .clamp_to_range(true)
                                         .suffix(state.params.get_unit(index)),
-                                )
-                                .changed()
-                            {
-                                state.params.set_value(index, value);
+                                    )
+                                    .changed()
+                                {
+                                    state.params.set_value(index, value);
+                                }
                             }
 
                             ui.end_row();
