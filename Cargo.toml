@@ -1,6 +1,6 @@
 [package]
 name = "jimtel"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["youxkei <youxkei@gmail.com>"]
 license = "CC0 1.0"
 edition = "2018"
