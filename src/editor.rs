@@ -60,11 +60,7 @@ impl<Params: 'static + VstParams + Send + Sync> VstEditor for Editor<Params> {
             window: WindowOpenOptions {
                 title: self.title.clone(),
                 size: Size::new(self.width, self.height),
-                scale: if cfg!(windows) || cfg!(macos) {
-                    WindowScalePolicy::SystemScaleFactor
-                } else {
-                    WindowScalePolicy::ScaleFactor(1.0)
-                },
+                scale: WindowScalePolicy::ScaleFactor(1.0),
             },
             render_settings: RenderSettings::default(),
         };
