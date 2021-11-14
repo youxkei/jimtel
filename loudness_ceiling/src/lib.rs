@@ -23,8 +23,8 @@ struct LoudnessCeiling {
 impl Default for LoudnessCeiling {
     fn default() -> Self {
         let sample_rate_hz = 48000.0;
-        let samples_num_per_window = (sample_rate_hz * 0.4) as usize;
-        let samples_num_per_calculation = (sample_rate_hz * 0.4 / 4.0) as usize;
+        let samples_num_per_window = (sample_rate_hz * 3.0) as usize;
+        let samples_num_per_calculation = (sample_rate_hz * 0.1) as usize;
 
         Self {
             loudness: jimtel::loudness::Loudness::new(

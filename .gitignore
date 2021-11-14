@@ -1,4 +1,7 @@
 /target
+/loudness_limiter/target
+/loudness_ceiling/target
+/params_derive/target
 /jimtel_linux.tar.gz
 /jimtel_windows.zip
 /jimtel_macos.zip
