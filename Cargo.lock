@@ -437,7 +437,7 @@ dependencies = [
 
 [[package]]
 name = "jimtel"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "baseview",
  "egui",
@@ -513,7 +513,7 @@ dependencies = [
 
 [[package]]
 name = "loudness_ceiling"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "itertools",
  "jimtel",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "loudness_limiter"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "itertools",
  "jimtel",
@@ -707,7 +707,7 @@ dependencies = [
 
 [[package]]
 name = "params_derive"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "darling",
  "quote",
