@@ -1,9 +1,24 @@
-[package]
-name = "jimtel"
+[workspace]
+members = [
+  "params_derive",
+  "loudness_limiter",
+  "loudness_ceiling",
+]
+
+[workspace.package]
 version = "0.9.0"
 authors = ["youxkei <youxkei@gmail.com>"]
 license = "CC0 1.0"
-edition = "2018"
+edition = "2021"
+repository = "https://github.com/youxkei/jimtel"
+
+[package]
+name = "jimtel"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 vst = "0.2.1"
@@ -12,10 +27,3 @@ baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "d399c1275
 egui-baseview = { git = "https://github.com/BillyDM/egui-baseview", rev = "c17f556fdc8b5d9278de473f6de6534c67cedf65" }
 egui = "0.12.0"
 epaint = "0.12.0"
-
-[workspace]
-members = [
-  "params_derive",
-  "loudness_limiter",
-  "loudness_ceiling",
-]
