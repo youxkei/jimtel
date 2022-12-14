@@ -24,14 +24,9 @@ impl Default for LoudnessCeiling {
     fn default() -> Self {
         let sample_rate_hz = 48000.0;
         let samples_num_per_window = (sample_rate_hz * 3.0) as usize;
-        let samples_num_per_calculation = (sample_rate_hz * 0.1) as usize;
 
         Self {
-            loudness: jimtel::loudness::Loudness::new(
-                sample_rate_hz,
-                samples_num_per_window,
-                samples_num_per_calculation,
-            ),
+            loudness: jimtel::loudness::Loudness::new(sample_rate_hz, samples_num_per_window, 1),
             params: Arc::new(LoudnessCeilingParams::new()),
 
             envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
@@ -85,7 +80,7 @@ impl Plugin for LoudnessCeiling {
             out_left_buffer.get_mut(0),
             out_right_buffer.get_mut(0),
         ) {
-            let loudness = self
+            let (loudness, _) = self
                 .loudness
                 .add_samples(in_left * input_gain, in_right * input_gain);
             let loudness = self.envelope.calculate(loudness);

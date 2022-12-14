@@ -44,7 +44,7 @@ impl<Params> Editor<Params> {
 
 impl<Params: 'static + VstParams + Send + Sync> VstEditor for Editor<Params> {
     fn size(&self) -> (i32, i32) {
-        (1024, 360)
+        (self.width as i32, self.height as i32)
     }
 
     fn position(&self) -> (i32, i32) {
@@ -99,6 +99,18 @@ impl<Params: 'static + VstParams + Send + Sync> VstEditor for Editor<Params> {
                                         state.params.set_value(index, 1.0)
                                     } else {
                                         state.params.set_value(index, 0.0)
+                                    }
+                                }
+                            } else if state.params.is_checkbox(index) {
+                                let mut checked = value > 0.5;
+                                if ui
+                                    .checkbox(&mut checked, state.params.get_name(index))
+                                    .changed()
+                                {
+                                    if checked {
+                                        state.params.set_value(index, 1.0);
+                                    } else {
+                                        state.params.set_value(index, 0.0);
                                     }
                                 }
                             } else {

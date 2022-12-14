@@ -19,16 +19,23 @@ impl Envelope {
 
     pub fn calculate(&mut self, value: f32) -> f32 {
         if value > self.value {
-            self.value += (value - self.value) * self.attack_coefficient;
-        } else {
-            self.value += (value - self.value) * self.release_coefficient;
+            self.value = (self.value * self.attack_coefficient).min(value);
+        } else if value < self.value {
+            self.value = (self.value * self.release_coefficient).max(value);
         }
+
+        self.value = self.value.max(f32::EPSILON); // should be greater than 0
 
         self.value
     }
 
     pub fn set_coefficients(&mut self, attack_ms: f32, release_ms: f32) {
-        self.attack_coefficient = (4000.0 / (attack_ms * self.sample_rate_hz)).min(1.0);
-        self.release_coefficient = (4000.0 / (release_ms * self.sample_rate_hz)).min(1.0);
+        // (+80 / attack_samples) dB
+        self.attack_coefficient =
+            10f32.powf(80.0 / (attack_ms / 1000.0 * self.sample_rate_hz) / 20.0);
+
+        // (-80 / release_samples) dB
+        self.release_coefficient =
+            10f32.powf(-80.0 / (release_ms / 1000.0 * self.sample_rate_hz) / 20.0);
     }
 }

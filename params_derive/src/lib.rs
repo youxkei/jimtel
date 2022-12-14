@@ -4,7 +4,7 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Ident};
 
 #[derive(FromMeta)]
-enum Unit {
+enum Kind {
     None,
     Ms,
     #[darling(rename = "dB")]
@@ -13,12 +13,15 @@ enum Unit {
     Dbfs,
     #[darling(rename = "LKFS")]
     Lkfs,
+    #[darling(rename = "samples")]
+    Samples,
     Button,
+    Checkbox,
 }
 
-impl Default for Unit {
+impl Default for Kind {
     fn default() -> Self {
-        Unit::None
+        Kind::None
     }
 }
 
@@ -36,7 +39,7 @@ struct Field {
     ident: Option<Ident>,
 
     #[darling(default)]
-    unit: Unit,
+    kind: Kind,
 
     min: f32,
     max: f32,
@@ -66,25 +69,36 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
     });
 
     let get_unit_matches = fields.iter().map(|(i, field)| {
-        let unit = match field.unit {
-            Unit::None => "",
-            Unit::Ms => "ms",
-            Unit::Db => "dB",
-            Unit::Dbfs => "dBFS",
-            Unit::Lkfs => "LKFS",
-            Unit::Button => "",
+        let unit = match field.kind {
+            Kind::None => "",
+            Kind::Ms => "ms",
+            Kind::Db => "dB",
+            Kind::Dbfs => "dBFS",
+            Kind::Lkfs => "LKFS",
+            Kind::Samples => "samples",
+            Kind::Button => "",
+            Kind::Checkbox => "",
         };
 
         quote! { #i => #unit.to_string() }
     });
 
     let is_button_matches = fields.iter().map(|(i, field)| {
-        let is_button = match field.unit {
-            Unit::Button => true,
+        let is_button = match field.kind {
+            Kind::Button => true,
             _ => false,
         };
 
         quote! { #i => #is_button }
+    });
+
+    let is_checkbox_matches = fields.iter().map(|(i, field)| {
+        let is_checkbox = match field.kind {
+            Kind::Checkbox => true,
+            _ => false,
+        };
+
+        quote! { #i => #is_checkbox }
     });
 
     let get_range_matches = fields.iter().map(|(i, field)| {
@@ -95,9 +109,13 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
     let get_value_matches = fields.iter().map(|(i, field)| {
         let ident = field.ident.as_ref().unwrap();
 
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
+        match field.kind {
+            Kind::Db | Kind::Dbfs => {
                 quote! { #i => 20.0 * self.#ident.get().log10() }
+            }
+
+            Kind::Lkfs => {
+                quote! { #i => -0.691 + 10.0 * self.#ident.get().log10() }
             }
 
             _ => {
@@ -113,9 +131,13 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
     let set_value_matches = fields.iter().map(|(i, field)| {
         let ident = field.ident.as_ref().unwrap();
 
-        match field.unit {
-            Unit::Db | Unit::Dbfs | Unit::Lkfs => {
-                quote! { #i => self.#ident.set(10f32.powf((value) * 0.05)) }
+        match field.kind {
+            Kind::Db | Kind::Dbfs => {
+                quote! { #i => self.#ident.set(10f32.powf((value) / 20.0)) }
+            }
+
+            Kind::Lkfs => {
+                quote! { #i => self.#ident.set(10f32.powf((value + 0.691) / 10.0)) }
             }
 
             _ => {
@@ -175,6 +197,13 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             fn is_button(&self, index: i32) -> bool {
                 match index {
                     #(#is_button_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            fn is_checkbox(&self, index: i32) -> bool {
+                match index {
+                    #(#is_checkbox_matches),*,
                     _ => panic!(),
                 }
             }

@@ -1,77 +1,63 @@
+use crate::sum_buffer::SumBuffer;
 use std::f32;
 
 pub struct Loudness {
-    samples_num_per_window: usize,
-    samples_num_per_calculation: usize,
+    samples_num_per_loudness_window: usize,
+    samples_num_per_power_window: usize,
 
     left_prefilter: Prefilter,
     right_prefilter: Prefilter,
 
-    sample_buffer: Vec<f32>,
-    current_sample: usize,
-    count: usize,
-
-    loudness: f32,
+    loudness_power_buffer: SumBuffer,
+    power_buffer: SumBuffer,
 }
 
 impl Loudness {
     pub fn new(
         sample_rate_hz: f32,
-        samples_num_per_window: usize,
-        samples_num_per_calculation: usize,
+        samples_num_per_loudness_window: usize,
+        samples_num_per_power_window: usize,
     ) -> Loudness {
         Loudness {
-            samples_num_per_window,
-            samples_num_per_calculation,
+            samples_num_per_loudness_window,
+            samples_num_per_power_window,
 
             left_prefilter: Prefilter::new(sample_rate_hz),
             right_prefilter: Prefilter::new(sample_rate_hz),
 
-            sample_buffer: vec![0.0; samples_num_per_window],
-            current_sample: 0,
-            count: 0,
-
-            loudness: 0.0,
+            loudness_power_buffer: SumBuffer::new(samples_num_per_loudness_window),
+            power_buffer: SumBuffer::new(samples_num_per_power_window),
         }
     }
 
-    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> f32 {
+    pub fn add_samples(&mut self, left_sample: f32, right_sample: f32) -> (f32, f32) {
         let left_sample = self.left_prefilter.apply(left_sample);
         let right_sample = self.right_prefilter.apply(right_sample);
+        let current_power = left_sample * left_sample + right_sample * right_sample;
 
-        self.sample_buffer[self.current_sample] =
-            left_sample * left_sample + right_sample * right_sample;
+        let loudness_power_sum = self.loudness_power_buffer.add(current_power);
+        let power_sum = self.power_buffer.add(current_power);
 
-        self.current_sample += 1;
-        if self.current_sample >= self.samples_num_per_window {
-            self.current_sample = 0;
+        (
+            loudness_power_sum / self.samples_num_per_loudness_window as f32,
+            power_sum / self.samples_num_per_power_window as f32,
+        )
+    }
+
+    pub fn set_samples_num_per_windows(
+        &mut self,
+        samples_num_per_loudness_window: usize,
+        samples_num_per_power_window: usize,
+    ) {
+        if self.samples_num_per_loudness_window != samples_num_per_loudness_window {
+            self.samples_num_per_loudness_window = samples_num_per_loudness_window;
+            self.loudness_power_buffer = SumBuffer::new(samples_num_per_loudness_window);
         }
 
-        self.count += 1;
-        if self.count >= self.samples_num_per_calculation {
-            self.count = 0;
-
-            let mut sum = 0.0;
-            let mut residue = 0.0;
-
-            for index in self.current_sample..(self.current_sample + self.samples_num_per_window) {
-                let index = if index >= self.samples_num_per_window {
-                    index - self.samples_num_per_window
-                } else {
-                    index
-                };
-
-                let power = self.sample_buffer[index];
-
-                let tmp = sum + (residue + power);
-                residue = (residue + power) - (tmp - sum);
-                sum = tmp;
-            }
-
-            self.loudness = 0.9235 * (sum / self.samples_num_per_window as f32).sqrt();
+        if self.samples_num_per_power_window != samples_num_per_power_window {
+            self.samples_num_per_power_window = samples_num_per_power_window;
+            self.power_buffer = SumBuffer::new(samples_num_per_power_window);
         }
-
-        self.loudness
     }
 }
 

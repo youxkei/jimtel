@@ -11,11 +11,13 @@ use jimtel::params::Params;
 use params::LoudnessLimiterParams;
 
 struct LoudnessLimiter {
+    sample_rate_hz: f32,
+
     loudness: jimtel::loudness::Loudness,
     params: Arc<LoudnessLimiterParams>,
 
-    envelope: jimtel::envelope::Envelope,
-    coefficient: f32,
+    power_envelope: jimtel::envelope::Envelope,
+    loudness_power_envelope: jimtel::envelope::Envelope,
 }
 
 impl Default for LoudnessLimiter {
@@ -23,11 +25,13 @@ impl Default for LoudnessLimiter {
         let sample_rate_hz = 48000.0;
 
         Self {
+            sample_rate_hz,
+
             loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1, 1),
             params: Arc::new(LoudnessLimiterParams::new()),
 
-            envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
-            coefficient: 1.0,
+            power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
+            loudness_power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
         }
     }
 }
@@ -55,11 +59,29 @@ impl Plugin for LoudnessLimiter {
 
         let input_gain = self.params.input_gain.get();
         let output_gain = self.params.output_gain.get();
-        let limit = self.params.limit.get();
-        let hard_limit = self.params.hard_limit.get();
-        let release_ms = self.params.release.get();
 
-        self.envelope.set_coefficients(0.0, release_ms);
+        let base_loudness_power = self.params.loudness.get();
+        let samples_num_per_loudness_window =
+            (self.params.loudness_window.get() / 1000.0 * self.sample_rate_hz) as usize;
+        let loudness_attack_ms = self.params.loudness_attack.get();
+        let loudness_release_ms = self.params.loudness_release.get();
+
+        let amplitude = self.params.power_from_loudness.get();
+        let amplitude_power = amplitude * amplitude;
+        let samples_num_per_power_window =
+            (self.params.power_window.get() / 1000.0 * self.sample_rate_hz) as usize;
+        let power_release_ms = self.params.power_release.get();
+
+        let silence_beyond_power_limit = self.params.silence_beyond_power.get();
+
+        self.loudness.set_samples_num_per_windows(
+            samples_num_per_loudness_window,
+            samples_num_per_power_window,
+        );
+
+        self.power_envelope.set_coefficients(0.0, power_release_ms);
+        self.loudness_power_envelope
+            .set_coefficients(loudness_attack_ms, loudness_release_ms);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
@@ -67,21 +89,28 @@ impl Plugin for LoudnessLimiter {
             out_left_buffer.get_mut(0),
             out_right_buffer.get_mut(0),
         ) {
-            let loudness = self
+            let (loudness_power, power) = self
                 .loudness
                 .add_samples(in_left * input_gain, in_right * input_gain);
-            let loudness = self.envelope.calculate(loudness);
 
-            if loudness > limit {
-                self.coefficient = limit / loudness;
-            } else {
-                self.coefficient = 1.0;
-            }
+            let enveloped_power = self.power_envelope.calculate(power);
+            let enveloped_loudness_power = self.loudness_power_envelope.calculate(loudness_power);
+            let base_power = enveloped_loudness_power * amplitude_power;
 
-            let gain = input_gain * output_gain * self.coefficient;
+            let loudness_coefficient = (base_loudness_power / enveloped_loudness_power).min(1.0);
 
-            *out_left = (in_left * gain).min(hard_limit).max(-hard_limit);
-            *out_right = (in_right * gain).min(hard_limit).max(-hard_limit);
+            let power_limit_coefficient =
+                if silence_beyond_power_limit > 0.5 && enveloped_power > base_power {
+                    0.0
+                } else {
+                    (base_power / enveloped_power).min(1.0)
+                };
+
+            let gain =
+                input_gain * output_gain * (loudness_coefficient * power_limit_coefficient).sqrt();
+
+            *out_left = in_left * gain;
+            *out_right = in_right * gain;
         }
     }
 
@@ -92,8 +121,8 @@ impl Plugin for LoudnessLimiter {
     fn get_editor(&mut self) -> Option<Box<dyn VstEditor>> {
         Some(Box::new(Editor::new(
             "Jimtel Loudness Limiter".to_string(),
-            1024.0,
-            360.0,
+            1280.0,
+            480.0,
             self.params.clone(),
         )))
     }
