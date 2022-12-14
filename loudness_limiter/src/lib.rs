@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use vst::buffer::AudioBuffer;
 use vst::editor::Editor as VstEditor;
-use vst::plugin::{Category, Info, Plugin, PluginParameters};
+use vst::plugin::{Category, HostCallback, Info, Plugin, PluginParameters};
 
 use jimtel::editor::Editor;
 use jimtel::params::Params;
@@ -20,8 +20,8 @@ struct LoudnessLimiter {
     loudness_power_envelope: jimtel::envelope::Envelope,
 }
 
-impl Default for LoudnessLimiter {
-    fn default() -> Self {
+impl Plugin for LoudnessLimiter {
+    fn new(_host: HostCallback) -> Self {
         let sample_rate_hz = 48000.0;
 
         Self {
@@ -34,9 +34,7 @@ impl Default for LoudnessLimiter {
             loudness_power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
         }
     }
-}
 
-impl Plugin for LoudnessLimiter {
     fn get_info(&self) -> Info {
         Info {
             name: "Jimtel Loudness Limiter".to_string(),

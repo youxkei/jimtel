@@ -3,9 +3,8 @@ use std::os::raw::c_void;
 use std::sync::Arc;
 
 use baseview::{Size, WindowOpenOptions, WindowScalePolicy};
-use egui::{CentralPanel, CtxRef, Grid, Style};
-use egui_baseview::{EguiWindow, Queue, RenderSettings, Settings};
-use epaint::text::{FontDefinitions, FontFamily, TextStyle};
+use egui::{CentralPanel, Context, FontFamily, FontId, Grid, TextStyle};
+use egui_baseview::{EguiWindow, Queue};
 use vst::editor::Editor as VstEditor;
 
 use crate::params::Params as VstParams;
@@ -56,39 +55,40 @@ impl<Params: 'static + VstParams + Send + Sync> VstEditor for Editor<Params> {
             return false;
         }
 
-        let settings = Settings {
-            window: WindowOpenOptions {
-                title: self.title.clone(),
-                size: Size::new(self.width, self.height),
-                scale: WindowScalePolicy::ScaleFactor(1.0),
-            },
-            render_settings: RenderSettings::default(),
+        let settings = WindowOpenOptions {
+            title: self.title.clone(),
+            size: Size::new(self.width, self.height),
+            scale: WindowScalePolicy::ScaleFactor(1.0),
+            gl_config: Some(Default::default()),
         };
 
         EguiWindow::open_parented(
             &WindowHandle(parent),
             settings,
             State::new(self.params.clone()),
-            |egui_ctx: &CtxRef, _queue: &mut Queue, _state: &mut State<Params>| {
-                let mut fonts = FontDefinitions::default();
-                fonts
-                    .family_and_size
-                    .insert(TextStyle::Body, (FontFamily::Proportional, 28.0));
-                fonts
-                    .family_and_size
-                    .insert(TextStyle::Button, (FontFamily::Proportional, 28.0));
-                fonts
-                    .family_and_size
-                    .insert(TextStyle::Monospace, (FontFamily::Monospace, 28.0));
-                egui_ctx.set_fonts(fonts);
+            |ctx: &Context, _queue: &mut Queue, _state: &mut State<Params>| {
+                let mut style = (*ctx.style()).clone();
 
-                let mut style: Style = (*egui_ctx.style()).clone();
+                style.text_styles = [
+                    (TextStyle::Body, FontId::new(28.0, FontFamily::Proportional)),
+                    (
+                        TextStyle::Button,
+                        FontId::new(28.0, FontFamily::Proportional),
+                    ),
+                    (
+                        TextStyle::Monospace,
+                        FontId::new(28.0, FontFamily::Monospace),
+                    ),
+                ]
+                .into();
+
                 style.spacing.slider_width = 700.0;
                 style.spacing.item_spacing.y = 16.0;
-                egui_ctx.set_style(style);
+
+                ctx.set_style(style);
             },
-            |egui_ctx: &CtxRef, _queue: &mut Queue, state: &mut State<Params>| {
-                CentralPanel::default().show(&egui_ctx, |ui| {
+            |ctx: &Context, _queue: &mut Queue, state: &mut State<Params>| {
+                CentralPanel::default().show(&ctx, |ui| {
                     Grid::new("root grid").show(ui, |ui| {
                         for index in Params::index_range() {
                             let mut value = state.params.get_value(index);

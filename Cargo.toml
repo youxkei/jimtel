@@ -12,6 +12,9 @@ license = "CC0 1.0"
 edition = "2021"
 repository = "https://github.com/youxkei/jimtel"
 
+[workspace.dependencies]
+vst = "0.3"
+
 [package]
 name = "jimtel"
 version.workspace = true
@@ -21,9 +24,9 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-vst = "0.2.1"
-raw-window-handle = "0.3.3"
-baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "d399c1275522ae75f5a82caadd904df2685c8660" }
-egui-baseview = { git = "https://github.com/BillyDM/egui-baseview", rev = "c17f556fdc8b5d9278de473f6de6534c67cedf65" }
-egui = "0.12.0"
+vst.workspace = true
+raw-window-handle = "0.4.2"
+baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c" }
+egui-baseview = { git = "https://github.com/BillyDM/egui-baseview", rev = "d2512c25bff19c05d73032e5349f3acb03d5da25" }
+egui = "0.19.0"
 epaint = "0.12.0"

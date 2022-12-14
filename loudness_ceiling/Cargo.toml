@@ -10,7 +10,7 @@ repository.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-vst = "0.2.1"
+vst.workspace = true
 itertools = "0.10.0"
 rmp-serde = "0.15.4"
 jimtel = { path = ".." }

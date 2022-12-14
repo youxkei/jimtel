@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use vst::buffer::AudioBuffer;
 use vst::editor::Editor as VstEditor;
-use vst::plugin::{Category, Info, Plugin, PluginParameters};
+use vst::plugin::{Category, HostCallback, Info, Plugin, PluginParameters};
 
 use jimtel::editor::Editor;
 use jimtel::params::Params;
@@ -20,8 +20,8 @@ struct LoudnessCeiling {
     previous_reset: bool,
 }
 
-impl Default for LoudnessCeiling {
-    fn default() -> Self {
+impl Plugin for LoudnessCeiling {
+    fn new(_host: HostCallback) -> Self {
         let sample_rate_hz = 48000.0;
         let samples_num_per_window = (sample_rate_hz * 3.0) as usize;
 
@@ -35,9 +35,7 @@ impl Default for LoudnessCeiling {
             previous_reset: false,
         }
     }
-}
 
-impl Plugin for LoudnessCeiling {
     fn get_info(&self) -> Info {
         Info {
             name: "Jimtel Loudness Ceiling".to_string(),
