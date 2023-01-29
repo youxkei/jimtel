@@ -13,7 +13,7 @@ pub struct LoudnessLimiterParams {
     #[param(kind = "LKFS", min = "-80", max = "0")]
     pub loudness: AtomicFloat,
 
-    #[param(kind = "ms", min = "100", max = "10000")]
+    #[param(kind = "ms", min = "1", max = "1000")]
     pub loudness_window: AtomicFloat,
 
     #[param(kind = "ms", min = "0", max = "1000")]
@@ -33,6 +33,9 @@ pub struct LoudnessLimiterParams {
 
     #[param(kind = "checkbox", min = "0", max = "1")]
     pub silence_beyond_power: AtomicFloat,
+
+    #[param(kind = "ms", min = "0", max = "1000")]
+    pub delay: AtomicFloat,
 }
 
 impl LoudnessLimiterParams {
@@ -51,6 +54,7 @@ impl LoudnessLimiterParams {
             power_window: AtomicFloat::new(6.0),
             power_release: AtomicFloat::new(10000.0),
             silence_beyond_power: AtomicFloat::new(0.0),
+            delay: AtomicFloat::new(0.0),
         }
     }
 }

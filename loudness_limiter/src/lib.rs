@@ -18,6 +18,8 @@ struct LoudnessLimiter {
 
     power_envelope: jimtel::envelope::Envelope,
     loudness_power_envelope: jimtel::envelope::Envelope,
+
+    delay_buffer: jimtel::delay_buffer::DelayBuffer,
 }
 
 impl Plugin for LoudnessLimiter {
@@ -32,6 +34,8 @@ impl Plugin for LoudnessLimiter {
 
             power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
             loudness_power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
+
+            delay_buffer: jimtel::delay_buffer::DelayBuffer::new(0),
         }
     }
 
@@ -72,6 +76,8 @@ impl Plugin for LoudnessLimiter {
 
         let silence_beyond_power_limit = self.params.silence_beyond_power.get();
 
+        let delay_samples = (self.params.delay.get() / 1000.0 * self.sample_rate_hz) as usize;
+
         self.loudness.set_samples_num_per_windows(
             samples_num_per_loudness_window,
             samples_num_per_power_window,
@@ -80,6 +86,8 @@ impl Plugin for LoudnessLimiter {
         self.power_envelope.set_coefficients(0.0, power_release_ms);
         self.loudness_power_envelope
             .set_coefficients(loudness_attack_ms, loudness_release_ms);
+
+        self.delay_buffer.set_delay(delay_samples);
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
@@ -107,8 +115,9 @@ impl Plugin for LoudnessLimiter {
             let gain =
                 input_gain * output_gain * (loudness_coefficient * power_limit_coefficient).sqrt();
 
-            *out_left = in_left * gain;
-            *out_right = in_right * gain;
+            let (delayed_in_left, delayed_in_right) = self.delay_buffer.add(*in_left, *in_right);
+            *out_left = delayed_in_left * gain;
+            *out_right = delayed_in_right * gain;
         }
     }
 
@@ -120,7 +129,7 @@ impl Plugin for LoudnessLimiter {
         Some(Box::new(Editor::new(
             "Jimtel Loudness Limiter".to_string(),
             1280.0,
-            480.0,
+            640.0,
             self.params.clone(),
         )))
     }
