@@ -43,6 +43,17 @@ struct Field {
 
     min: f32,
     max: f32,
+
+    // A meter is a read-only output value written by the audio thread and shown
+    // in the editor. It is excluded from the VST parameter set (not automatable,
+    // not serialized into bank data) and lives in its own index space.
+    #[darling(default)]
+    meter: bool,
+
+    // Meters sharing a non-empty group are mutually exclusive alternatives; the
+    // editor shows a selector and plots only the chosen one.
+    #[darling(default)]
+    group: String,
 }
 
 #[proc_macro_derive(Params, attributes(param))]
@@ -51,17 +62,31 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
 
     let ident = input.ident;
 
-    let fields = input
+    // Partition fields into meters and regular parameters, each with its own
+    // 0-based, contiguous index space. Regular parameters keep the indices the
+    // VST host and bank data rely on; meters are addressed separately.
+    let (meter_fields, param_fields): (Vec<_>, Vec<_>) = input
         .data
         .take_struct()
         .unwrap()
         .fields
+        .into_iter()
+        .partition(|field| field.meter);
+
+    let fields = param_fields
+        .into_iter()
+        .enumerate()
+        .map(|(i, field)| (i as i32, field))
+        .collect::<Vec<_>>();
+
+    let meters = meter_fields
         .into_iter()
         .enumerate()
         .map(|(i, field)| (i as i32, field))
         .collect::<Vec<_>>();
 
     let num_fields = fields.len();
+    let num_meters = meters.len();
 
     let get_name_matches = fields.iter().map(|(i, field)| {
         let name = format!("{}", field.ident.as_ref().unwrap());
@@ -172,6 +197,60 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
         quote! { #i => self.set_value(#i, #min + #width * value)}
     });
 
+    // Meter arms end each match arm with its own trailing comma so the generated
+    // `match` stays valid even when a struct declares no meters at all.
+    let get_meter_name_matches = meters.iter().map(|(i, field)| {
+        let name = format!("{}", field.ident.as_ref().unwrap());
+        quote! { #i => #name.to_string(), }
+    });
+
+    let get_meter_unit_matches = meters.iter().map(|(i, field)| {
+        let unit = match field.kind {
+            Kind::None => "",
+            Kind::Ms => "ms",
+            Kind::Db => "dB",
+            Kind::Dbfs => "dBFS",
+            Kind::Lkfs => "LKFS",
+            Kind::Samples => "samples",
+            Kind::Button => "",
+            Kind::Checkbox => "",
+        };
+
+        quote! { #i => #unit.to_string(), }
+    });
+
+    let get_meter_value_matches = meters.iter().map(|(i, field)| {
+        let ident = field.ident.as_ref().unwrap();
+
+        match field.kind {
+            Kind::Db | Kind::Dbfs => {
+                quote! { #i => 20.0 * self.#ident.get().log10(), }
+            }
+
+            Kind::Lkfs => {
+                quote! { #i => -0.691 + 10.0 * self.#ident.get().log10(), }
+            }
+
+            _ => {
+                quote! { #i => self.#ident.get(), }
+            }
+        }
+    });
+
+    let get_meter_value_text_matches = meters.iter().map(|(i, _field)| {
+        quote! { #i => ((10.0 * self.get_meter_value(#i)).round() / 10.0).to_string(), }
+    });
+
+    let get_meter_range_matches = meters.iter().map(|(i, field)| {
+        let Field { min, max, .. } = field;
+        quote! { #i => #min..=#max, }
+    });
+
+    let get_meter_group_matches = meters.iter().map(|(i, field)| {
+        let group = field.group.as_str();
+        quote! { #i => #group.to_string(), }
+    });
+
     (quote! {
         impl jimtel::params::Params for #ident {
             fn num_params() -> usize { #num_fields }
@@ -232,6 +311,54 @@ pub fn derive_plugin_parameters(input: TokenStream) -> TokenStream {
             fn set_value(&self, index: i32, value: f32) {
                 match index {
                     #(#set_value_matches),*,
+                    _ => panic!(),
+                }
+            }
+
+            fn num_meters() -> usize { #num_meters }
+
+            fn meter_index_range() -> std::ops::Range<i32> {
+                0i32..(#num_meters as i32)
+            }
+
+            fn get_meter_name(&self, index: i32) -> String {
+                match index {
+                    #(#get_meter_name_matches)*
+                    _ => panic!(),
+                }
+            }
+
+            fn get_meter_unit(&self, index: i32) -> String {
+                match index {
+                    #(#get_meter_unit_matches)*
+                    _ => panic!(),
+                }
+            }
+
+            fn get_meter_value(&self, index: i32) -> f32 {
+                match index {
+                    #(#get_meter_value_matches)*
+                    _ => panic!(),
+                }
+            }
+
+            fn get_meter_value_text(&self, index: i32) -> String {
+                match index {
+                    #(#get_meter_value_text_matches)*
+                    _ => panic!(),
+                }
+            }
+
+            fn get_meter_range(&self, index: i32) -> std::ops::RangeInclusive<f32> {
+                match index {
+                    #(#get_meter_range_matches)*
+                    _ => panic!(),
+                }
+            }
+
+            fn get_meter_group(&self, index: i32) -> String {
+                match index {
+                    #(#get_meter_group_matches)*
                     _ => panic!(),
                 }
             }

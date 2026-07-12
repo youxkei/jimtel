@@ -9,6 +9,11 @@ repository.workspace = true
 [lib]
 crate-type = ["cdylib"]
 
+# When enabled, builds a separate "dev" plugin (distinct name and VST unique_id)
+# so it can be loaded alongside the production build in a DAW.
+[features]
+dev = []
+
 [dependencies]
 vst.workspace = true
 itertools = "0.10.0"

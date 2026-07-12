@@ -14,6 +14,7 @@ struct LoudnessLimiter {
     sample_rate_hz: f32,
 
     loudness: jimtel::loudness::Loudness,
+    output_loudness: jimtel::loudness::Loudness,
     params: Arc<LoudnessLimiterParams>,
 
     power_envelope: jimtel::envelope::Envelope,
@@ -30,6 +31,7 @@ impl Plugin for LoudnessLimiter {
             sample_rate_hz,
 
             loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1, 1),
+            output_loudness: jimtel::loudness::Loudness::new(sample_rate_hz, 1, 1),
             params: Arc::new(LoudnessLimiterParams::new()),
 
             power_envelope: jimtel::envelope::Envelope::new(sample_rate_hz),
@@ -40,9 +42,17 @@ impl Plugin for LoudnessLimiter {
     }
 
     fn get_info(&self) -> Info {
+        // The dev build gets a distinct name and unique_id so a DAW treats it as
+        // a separate plugin and it can coexist with the production build.
+        let (name, unique_id) = if cfg!(feature = "dev") {
+            ("Jimtel Loudness Limiter (dev)".to_string(), 2065809689)
+        } else {
+            ("Jimtel Loudness Limiter".to_string(), 2065809688)
+        };
+
         Info {
-            name: "Jimtel Loudness Limiter".to_string(),
-            unique_id: 2065809688,
+            name,
+            unique_id,
             inputs: 2,
             outputs: 2,
             parameters: LoudnessLimiterParams::num_params() as i32,
@@ -82,12 +92,24 @@ impl Plugin for LoudnessLimiter {
             samples_num_per_loudness_window,
             samples_num_per_power_window,
         );
+        self.output_loudness
+            .set_samples_num_per_windows(samples_num_per_loudness_window, 1);
 
         self.power_envelope.set_coefficients(0.0, power_release_ms);
         self.loudness_power_envelope
             .set_coefficients(loudness_attack_ms, loudness_release_ms);
 
         self.delay_buffer.set_delay(delay_samples);
+
+        // Meter readouts, captured from the last sample of the block. Loudness is
+        // stored as mean power (the LKFS meter kind takes the log); gain reduction
+        // is stored as an amplitude coefficient (the dB meter kind takes the log).
+        let input_gain_power = input_gain * input_gain;
+        let output_gain_power = output_gain * output_gain;
+
+        let mut meter_input_loudness_power = f32::EPSILON;
+        let mut meter_output_loudness_power = f32::EPSILON;
+        let mut meter_reduction = 1.0;
 
         for (in_left, in_right, out_left, out_right) in itertools::izip!(
             in_left_buffer.get(0),
@@ -118,7 +140,32 @@ impl Plugin for LoudnessLimiter {
             let (delayed_in_left, delayed_in_right) = self.delay_buffer.add(*in_left, *in_right);
             *out_left = delayed_in_left * gain;
             *out_right = delayed_in_right * gain;
+
+            let (output_loudness_power, _) =
+                self.output_loudness.add_samples(*out_left, *out_right);
+
+            meter_input_loudness_power = loudness_power.max(f32::EPSILON);
+            meter_output_loudness_power = output_loudness_power.max(f32::EPSILON);
+            meter_reduction = (loudness_coefficient * power_limit_coefficient).sqrt();
         }
+
+        // Divide out the user gains to recover the pre-gain loudness (exact, since
+        // each gain is a constant scalar applied uniformly across the window).
+        self.params
+            .input_loudness_post_gain
+            .set(meter_input_loudness_power);
+        self.params
+            .input_loudness_pre_gain
+            .set((meter_input_loudness_power / input_gain_power).max(f32::EPSILON));
+        self.params
+            .output_loudness_post_gain
+            .set(meter_output_loudness_power);
+        self.params
+            .output_loudness_pre_gain
+            .set((meter_output_loudness_power / output_gain_power).max(f32::EPSILON));
+        self.params
+            .gain_reduction
+            .set(meter_reduction.max(f32::EPSILON));
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
@@ -126,10 +173,16 @@ impl Plugin for LoudnessLimiter {
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn VstEditor>> {
+        let title = if cfg!(feature = "dev") {
+            "Jimtel Loudness Limiter (dev)".to_string()
+        } else {
+            "Jimtel Loudness Limiter".to_string()
+        };
+
         Some(Box::new(Editor::new(
-            "Jimtel Loudness Limiter".to_string(),
+            title,
             1280.0,
-            640.0,
+            1080.0,
             self.params.clone(),
         )))
     }

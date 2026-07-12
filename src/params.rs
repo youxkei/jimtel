@@ -9,4 +9,13 @@ pub trait Params {
     fn get_value(&self, index: i32) -> f32;
     fn get_value_text(&self, index: i32) -> String;
     fn set_value(&self, index: i32, value: f32);
+
+    fn num_meters() -> usize;
+    fn meter_index_range() -> std::ops::Range<i32>;
+    fn get_meter_name(&self, index: i32) -> String;
+    fn get_meter_unit(&self, index: i32) -> String;
+    fn get_meter_value(&self, index: i32) -> f32;
+    fn get_meter_value_text(&self, index: i32) -> String;
+    fn get_meter_range(&self, index: i32) -> std::ops::RangeInclusive<f32>;
+    fn get_meter_group(&self, index: i32) -> String;
 }
